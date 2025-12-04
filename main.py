@@ -23,42 +23,38 @@ st.title("📝 Ödev Matik")
 st.write("Fotoğraf yükle veya sorunu yaz, çözüm deftere gelsin!")
 
 # --- GİRİŞ YÖNTEMİ SEÇİMİ ---
-# O parantez içindeki yazıyı sildim, tertemiz oldu.
 secim = st.radio("Soruyu nasıl soracaksın?", ["📁 Galeriden Seç", "📸 Kamerayı Aç", "⌨️ Elle Yaz"], horizontal=True)
 
 gorsel_veri = None
 metin_sorusu = None
 form_tetiklendi = False
 
-# --- 1. YÖNTEM: GALERİ ---
+# --- 1. GALERİ ---
 if secim == "📁 Galeriden Seç":
     st.info("👇 Aşağıdaki kutuya tıkla")
     yuklenen_dosya = st.file_uploader("Dosya Seç", accept_multiple_files=False)
     if yuklenen_dosya:
         gorsel_veri = yuklenen_dosya.getvalue()
-        if st.button("Çöz ve Yazdır ✍️"):
+        if st.button("Çöz ve Yazdır ✍️", type="primary"):
             form_tetiklendi = True
 
-# --- 2. YÖNTEM: KAMERA ---
+# --- 2. KAMERA ---
 elif secim == "📸 Kamerayı Aç":
     cekilen_foto = st.camera_input("Fotoğraf Çek")
     if cekilen_foto:
         gorsel_veri = cekilen_foto.getvalue()
-        if st.button("Çöz ve Yazdır ✍️"):
+        if st.button("Çöz ve Yazdır ✍️", type="primary"):
             form_tetiklendi = True
 
-# --- 3. YÖNTEM: MANUEL METİN (FORM YAPISI) ---
+# --- 3. METİN (FORM) ---
 elif secim == "⌨️ Elle Yaz":
-    # Form kullanarak kutuyu ve butonu birleştiriyoruz.
     with st.form(key='soru_formu'):
         metin_sorusu = st.text_area(
             "Sorunu buraya detaylıca yaz:", 
-            height=180, # Geniş ve ferah kutu
+            height=180, 
             placeholder="Matematik veya Sözel sorunu buraya yazabilirsin..."
         )
-        # Buton formun içinde, sağ altta şık durur
         gonder_butonu = st.form_submit_button("Çöz ve Yazdır ✍️", type="primary")
-        
         if gonder_butonu and metin_sorusu:
             form_tetiklendi = True
 
@@ -69,21 +65,24 @@ if form_tetiklendi:
             ana_prompt = """
             GÖREV: Soruyu öğrenci gibi çöz.
             1. Cevabı çok kısa tutma ama destan da yazma. Adım adım git.
-            2. LaTeX formatı ($$) KULLANMA. Düz metin kullan. (Örn: x^2 yerine x kare yaz).
+            2. LaTeX formatı ($$) KULLANMA. Düz metin kullan.
             3. Okunaklı ve samimi bir dil kullan.
             4. Cevabı en sonda net belirt.
             """
 
-            # EĞER FOTOĞRAF VARSA
+            # --- AKILLI MODEL SEÇİMİ (PARAN CEBİNDE KALSIN) ---
+            # Fotoğraf varsa: MECBUREN PAHALI MODEL (gpt-4o) - Çünkü gözleri keskin.
             if gorsel_veri:
+                secilen_model = "gpt-4o"
                 base64_image = base64.b64encode(gorsel_veri).decode('utf-8')
                 messages = [
                     {"role": "system", "content": ana_prompt},
                     {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}]}
                 ]
             
-            # EĞER SADECE METİN VARSA
+            # Sadece yazı varsa: UCUZ MODEL (gpt-4o-mini) - Çünkü metinde gayet zeki.
             elif metin_sorusu:
+                secilen_model = "gpt-4o-mini"
                 messages = [
                     {"role": "system", "content": ana_prompt},
                     {"role": "user", "content": f"Soru: {metin_sorusu}"}
@@ -91,7 +90,7 @@ if form_tetiklendi:
 
             # AI ÇAĞRISI
             response = client.chat.completions.create(
-                model="gpt-4o", 
+                model=secilen_model, 
                 messages=messages,
                 max_tokens=1000
             )
