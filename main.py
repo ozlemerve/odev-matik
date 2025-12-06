@@ -62,9 +62,8 @@ def deduct_credit(username):
 
 init_db()
 
-# --- E-POSTA GÖNDERME FONKSİYONU ---
+# --- E-POSTA GÖNDERME FONKSİYONU (PROFESYONEL İSİMLİ) ---
 def send_verification_email(to_email, code):
-    # Secrets'tan bilgileri çekiyoruz
     try:
         sender_email = st.secrets["EMAIL_ADDRESS"]
         sender_password = st.secrets["EMAIL_PASSWORD"]
@@ -73,10 +72,15 @@ def send_verification_email(to_email, code):
         return False
     
     subject = "ÖdevMatik Doğrulama Kodu"
-    body = f"Merhaba,\n\nÖdevMatik kayıt işleminiz için doğrulama kodunuz: {code}\n\nİyi çalışmalar!"
+    body = f"Merhaba,\n\nÖdevMatik kayıt işleminiz için doğrulama kodunuz: {code}\n\nBu kodu kimseyle paylaşmayın.\n\nSevgiler,\nÖdevMatik Ekibi"
 
     msg = MIMEMultipart()
-    msg['From'] = sender_email
+    
+    # --- İŞTE DÜZELTİLEN YER ---
+    # Mail adresi yerine "ÖdevMatik Güvenlik" yazacak
+    msg['From'] = f"ÖdevMatik Güvenlik <{sender_email}>"
+    # ---------------------------
+    
     msg['To'] = to_email
     msg['Subject'] = subject
     msg.attach(MIMEText(body, 'plain'))
