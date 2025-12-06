@@ -11,34 +11,36 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- MODERN CSS (BUTONLARI GÜZELLEŞTİRME) ---
-# Bu kod, butonları büyütür, kenarlarını yuvarlar ve mobil uygulama hissi verir.
+# --- MODERN CSS (MÜKEMMEL DENGELİ BUTONLAR) ---
 st.markdown("""
 <style>
+    /* Tüm butonları hedefle */
     div.stButton > button {
-        width: 100%;
-        height: 60px;
-        border-radius: 12px;
-        border: 2px solid #f0f2f6;
-        background-color: white;
+        width: 100%; /* Kutuyu tam doldur */
+        height: 70px; /* Biraz daha yüksek ve heybetli */
+        border-radius: 16px; /* Daha yuvarlak köşeler */
+        border: 2px solid #e0e0e0;
+        background-color: #ffffff;
         color: #31333F;
-        font-weight: bold;
-        font-size: 18px;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        font-weight: 800; /* Daha kalın yazı */
+        font-size: 22px !important; /* İKONLARIN HEPSİ BÜYÜK VE EŞİT OLACAK */
+        transition: all 0.2s ease-in-out;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05); /* Hafif modern gölge */
     }
-    div.stButton > button:hover {
+    /* Üzerine gelince veya tıklayınca */
+    div.stButton > button:hover, div.stButton > button:active {
         border-color: #4CAF50;
         color: #4CAF50;
-        transform: translateY(-2px);
+        background-color: #f1f8e9;
+        transform: scale(1.02); /* Hafif büyüme efekti */
     }
-    div.stButton > button:focus {
-        border-color: #4CAF50;
-        background-color: #e8f5e9;
-        color: #4CAF50;
+    /* Başlık ve alt yazı ortalama */
+    h1 { text-align: center; color: #1E1E1E; margin-bottom: 0px; }
+    p { text-align: center; color: #666; margin-top: 5px; }
+    /* Sütunlar arası boşluğu biraz daraltmak için */
+    [data-testid="column"] {
+        padding: 0 0.5rem !important;
     }
-    h1 { text-align: center; color: #1E1E1E; }
-    p { text-align: center; color: #666; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -50,50 +52,50 @@ loading_messages = [
     "Çözüm yolda, az sabır... 🚀"
 ]
 
-# --- SESSION STATE (SEÇİMİ HAFIZADA TUTMAK İÇİN) ---
+# --- SESSION STATE ---
 if "aktif_mod" not in st.session_state:
-    st.session_state.aktif_mod = "Galeri" # Varsayılan mod
+    st.session_state.aktif_mod = "Galeri"
 
 # --- YAN MENÜ ---
 with st.sidebar:
     st.title("📝 Menü")
     with st.expander("ℹ️ Nasıl Kullanılır?"):
-        st.write("Fotoğrafı yükle veya sorunu yaz, yapay zeka senin için deftere çözsün.")
+        st.write("1. Yöntem seç.\n2. Soruyu yükle/yaz.\n3. Çözümü al.")
     
     st.divider()
     
     if "OPENAI_API_KEY" in st.secrets:
         api_key = st.secrets["OPENAI_API_KEY"]
-        st.success("✅ Sistem Hazır")
     else:
-        api_key = st.text_input("OpenAI Şifreni (Key) Yapıştır:", type="password")
-        if not api_key:
-            st.warning("⚠️ Şifre girmeden çalışmaz.")
-            st.stop()
+        api_key = st.text_input("Şifre:", type="password")
+        if not api_key: st.stop()
 
 client = OpenAI(api_key=api_key)
 
 # --- ANA BAŞLIK ---
 st.markdown("<h1>📝 ÖdevMatik</h1>", unsafe_allow_html=True)
 st.markdown("<p>Ödev asistanın cebinde!</p>", unsafe_allow_html=True)
-st.divider()
+st.write("") # Biraz boşluk
 
-# --- MODERN MENÜ (YAN YANA 3 BÜYÜK BUTON) ---
+# --- MODERN MENÜ (3 EŞİT ve BÜYÜK BUTON) ---
 col1, col2, col3 = st.columns(3)
 
+# use_container_width=True sayesinde hepsi eşitlenir!
 with col1:
-    if st.button("📁 Galeri"):
+    if st.button("📁 Galeri", use_container_width=True):
         st.session_state.aktif_mod = "Galeri"
 
 with col2:
-    if st.button("📸 Kamera"):
+    if st.button("📸 Kamera", use_container_width=True):
         st.session_state.aktif_mod = "Kamera"
 
 with col3:
-    if st.button("⌨️ Yaz"):
+    if st.button("⌨️ Yaz", use_container_width=True):
         st.session_state.aktif_mod = "Yaz"
 
-# --- SEÇİME GÖRE İÇERİK GÖSTERME ---
+st.divider()
+
+# --- İÇERİK GÖSTERİMİ ---
 gorsel_veri = None
 metin_sorusu = None
 form_tetiklendi = False
@@ -104,7 +106,8 @@ if st.session_state.aktif_mod == "Galeri":
     yuklenen_dosya = st.file_uploader("", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
     if yuklenen_dosya:
         gorsel_veri = yuklenen_dosya.getvalue()
-        st.image(gorsel_veri, caption="Seçilen Fotoğraf", use_container_width=True)
+        st.image(gorsel_veri, use_container_width=True)
+        st.write("")
         if st.button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True):
             form_tetiklendi = True
 
@@ -114,65 +117,4 @@ elif st.session_state.aktif_mod == "Kamera":
     cekilen_foto = st.camera_input("Kamerayı aç")
     if cekilen_foto:
         gorsel_veri = cekilen_foto.getvalue()
-        if st.button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True):
-            form_tetiklendi = True
-
-# 3. MOD: YAZI
-elif st.session_state.aktif_mod == "Yaz":
-    st.info("⌨️ **Soruyu Elle Yaz**")
-    with st.form(key='soru_formu'):
-        metin_sorusu = st.text_area("Sorunu buraya yaz:", height=150, placeholder="Matematik, Tarih, Türkçe...")
-        gonder_butonu = st.form_submit_button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True)
-        if gonder_butonu and metin_sorusu:
-            form_tetiklendi = True
-
-# --- ÇÖZÜM MOTORU (HİBRİT) ---
-if form_tetiklendi:
-    spinner_mesaji = random.choice(loading_messages)
-    
-    with st.spinner(spinner_mesaji):
-        try:
-            ana_prompt = """
-            GÖREV: Soruyu öğrenci gibi çöz.
-            1. Cevabı çok kısa tutma ama destan da yazma. Adım adım git.
-            2. LaTeX formatı ($$) KULLANMA. Düz metin kullan.
-            3. Okunaklı ve samimi bir dil kullan.
-            4. Cevabı en sonda net belirt.
-            """
-
-            # --- AKILLI MODEL SEÇİMİ ---
-            # Fotoğraf varsa: PAHALI MODEL (gpt-4o)
-            if gorsel_veri:
-                secilen_model = "gpt-4o"
-                base64_image = base64.b64encode(gorsel_veri).decode('utf-8')
-                messages = [
-                    {"role": "system", "content": ana_prompt},
-                    {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}]}
-                ]
-            
-            # Sadece yazı varsa: UCUZ MODEL (gpt-4o-mini)
-            elif metin_sorusu:
-                secilen_model = "gpt-4o-mini"
-                messages = [
-                    {"role": "system", "content": ana_prompt},
-                    {"role": "user", "content": f"Soru: {metin_sorusu}"}
-                ]
-
-            # AI ÇAĞRISI
-            response = client.chat.completions.create(
-                model=secilen_model, 
-                messages=messages,
-                max_tokens=1000
-            )
-            
-            cevap = response.choices[0].message.content
-            
-            # --- KAĞIT GÖRÜNÜMÜ ---
-            st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{cevap}</div>""", unsafe_allow_html=True)
-
-        except Exception as e:
-            st.error(f"Hata: {e}")
-
-# --- YASAL UYARI (SADE) ---
-st.divider()
-st.caption("⚠️ Sonuçlar yapay zeka tarafından üretilmiştir, lütfen kontrol ediniz.")
+        st.write("")
