@@ -3,7 +3,7 @@ from openai import OpenAI
 import base64
 import random
 import urllib.parse
-import streamlit.components.v1 as components # Yazdırma özelliği için gerekli
+import streamlit.components.v1 as components
 
 # --- AYARLAR ---
 st.set_page_config(
@@ -16,7 +16,6 @@ st.set_page_config(
 # --- MODERN CSS ---
 st.markdown("""
 <style>
-    /* Ana Menü Butonları */
     div.stButton > button {
         width: 100%;
         height: 60px;
@@ -35,17 +34,9 @@ st.markdown("""
         transform: translateY(-2px);
     }
     
-    /* Paylaşım Butonları İçin Özel Renkler */
-    /* WhatsApp (Yeşil) */
-    a[href*="whatsapp"] button {
-        color: #25D366 !important;
-        border-color: #25D366 !important;
-    }
-    /* Mail (Mavi) */
-    a[href^="mailto"] button {
-        color: #0078D4 !important;
-        border-color: #0078D4 !important;
-    }
+    /* Özel Buton Renkleri */
+    a[href*="whatsapp"] button { color: #25D366 !important; border-color: #25D366 !important; }
+    a[href^="mailto"] button { color: #0078D4 !important; border-color: #0078D4 !important; }
     
     h1 { text-align: center; color: #1E1E1E; margin-bottom: 0px; }
     p { text-align: center; color: #666; margin-top: 5px; }
@@ -67,7 +58,7 @@ if "aktif_mod" not in st.session_state:
 with st.sidebar:
     st.title("📝 Menü")
     with st.expander("ℹ️ Nasıl Kullanılır?"):
-        st.write("1. Yöntem seç.\n2. Soruyu yükle/yaz.\n3. Çözümü al ve paylaş.")
+        st.write("1. Yöntem seç.\n2. Soruyu yükle/yaz.\n3. Çözümü al.")
     st.divider()
     if "OPENAI_API_KEY" in st.secrets:
         api_key = st.secrets["OPENAI_API_KEY"]
@@ -97,7 +88,7 @@ gorsel_veri = None
 metin_sorusu = None
 form_tetiklendi = False
 
-# --- GİRİŞ MODLARI ---
+# --- MODLAR ---
 if st.session_state.aktif_mod == "Galeri":
     st.info("📂 **Galeriden Seç**")
     yuklenen_dosya = st.file_uploader("", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
@@ -123,13 +114,12 @@ elif st.session_state.aktif_mod == "Yaz":
         gonder_butonu = st.form_submit_button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True)
         if gonder_butonu and metin_sorusu: form_tetiklendi = True
 
-# --- ÇÖZÜM VE AKSİYONLAR ---
+# --- ÇÖZÜM MOTORU ---
 if form_tetiklendi:
     with st.spinner(random.choice(loading_messages)):
         try:
             ana_prompt = """GÖREV: Soruyu öğrenci gibi çöz. Adım adım git. LaTeX kullanma. Samimi ol. Sonucu net belirt."""
 
-            # HİBRİT MODEL SEÇİMİ
             if gorsel_veri:
                 secilen_model = "gpt-4o"
                 base64_image = base64.b64encode(gorsel_veri).decode('utf-8')
@@ -141,23 +131,17 @@ if form_tetiklendi:
             response = client.chat.completions.create(model=secilen_model, messages=messages, max_tokens=1000)
             cevap = response.choices[0].message.content
             
-            # KAĞIT GÖRÜNÜMÜ
+            # --- KAĞIT GÖRÜNÜMÜ ---
             st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{cevap}</div>""", unsafe_allow_html=True)
 
-            # --- PAYLAŞIM VE ÇIKTI ALANI ---
+            # --- PAYLAŞIM ALANI ---
             st.write("")
             st.markdown("### 📤 Paylaş ve Kaydet")
             
-            # 1. HAZIRLIK: Metni URL uyumlu hale getir
             paylasim_metni = urllib.parse.quote(f"ÖdevMatik Çözümü:\n\n{cevap}\n\n--- ÖdevMatik ile çözüldü.")
-            
-            # 2. LİNKLERİ OLUŞTUR
-            # WhatsApp için daha garantili API linki
             whatsapp_link = f"https://api.whatsapp.com/send?text={paylasim_metni}"
-            # Mail Linki
             mail_link = f"mailto:?subject=ÖdevMatik Çözümü&body={paylasim_metni}"
 
-            # 3. BUTONLARI YAN YANA DİZ
             p_col1, p_col2, p_col3 = st.columns(3)
             
             with p_col1:
@@ -167,10 +151,9 @@ if form_tetiklendi:
                 st.link_button("📧 Mail At", mail_link, use_container_width=True)
             
             with p_col3:
-                # Yazdır butonu (JavaScript tetikler)
+                # DÜZELTME BURADA: window.print() yerine window.parent.print() kullandık.
                 if st.button("🖨️ Yazdır/PDF", use_container_width=True):
-                    # Bu kod tarayıcının "Yazdır" penceresini açar
-                    components.html("<script>window.print()</script>", height=0, width=0)
+                    components.html("<script>window.parent.print();</script>", height=0, width=0)
 
         except Exception as e:
             st.error(f"Hata: {e}")
