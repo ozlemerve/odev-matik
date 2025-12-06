@@ -2,7 +2,8 @@ import streamlit as st
 from openai import OpenAI
 import base64
 import random
-import urllib.parse # WhatsApp linki için gerekli kütüphane
+import urllib.parse
+import streamlit.components.v1 as components # Yazdırma özelliği için gerekli
 
 # --- AYARLAR ---
 st.set_page_config(
@@ -12,35 +13,43 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- CSS (BUTONLAR) ---
+# --- MODERN CSS ---
 st.markdown("""
 <style>
+    /* Ana Menü Butonları */
     div.stButton > button {
         width: 100%;
-        height: 70px;
-        border-radius: 16px;
+        height: 60px;
+        border-radius: 12px;
         border: 2px solid #e0e0e0;
-        background-color: #ffffff;
+        background-color: white;
         color: #31333F;
         font-weight: 800;
-        font-size: 22px !important;
-        transition: all 0.2s ease-in-out;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        font-size: 20px !important;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
-    div.stButton > button:hover, div.stButton > button:active {
+    div.stButton > button:hover {
         border-color: #4CAF50;
         color: #4CAF50;
-        background-color: #f1f8e9;
-        transform: scale(1.02);
+        transform: translateY(-2px);
     }
-    /* WhatsApp Butonu için özel stil (Yeşil) */
-    a[href^="https://wa.me"] button {
+    
+    /* Paylaşım Butonları İçin Özel Renkler */
+    /* WhatsApp (Yeşil) */
+    a[href*="whatsapp"] button {
         color: #25D366 !important;
         border-color: #25D366 !important;
     }
+    /* Mail (Mavi) */
+    a[href^="mailto"] button {
+        color: #0078D4 !important;
+        border-color: #0078D4 !important;
+    }
+    
     h1 { text-align: center; color: #1E1E1E; margin-bottom: 0px; }
     p { text-align: center; color: #666; margin-top: 5px; }
-    [data-testid="column"] { padding: 0 0.5rem !important; }
+    [data-testid="column"] { padding: 0 0.3rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -58,7 +67,7 @@ if "aktif_mod" not in st.session_state:
 with st.sidebar:
     st.title("📝 Menü")
     with st.expander("ℹ️ Nasıl Kullanılır?"):
-        st.write("1. Yöntem seç.\n2. Soruyu yükle/yaz.\n3. Çözümü al.")
+        st.write("1. Yöntem seç.\n2. Soruyu yükle/yaz.\n3. Çözümü al ve paylaş.")
     st.divider()
     if "OPENAI_API_KEY" in st.secrets:
         api_key = st.secrets["OPENAI_API_KEY"]
@@ -88,9 +97,9 @@ gorsel_veri = None
 metin_sorusu = None
 form_tetiklendi = False
 
-# --- MODLAR ---
+# --- GİRİŞ MODLARI ---
 if st.session_state.aktif_mod == "Galeri":
-    st.info("📂 **Galeriden Fotoğraf Seç**")
+    st.info("📂 **Galeriden Seç**")
     yuklenen_dosya = st.file_uploader("", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
     if yuklenen_dosya:
         gorsel_veri = yuklenen_dosya.getvalue()
@@ -114,12 +123,13 @@ elif st.session_state.aktif_mod == "Yaz":
         gonder_butonu = st.form_submit_button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True)
         if gonder_butonu and metin_sorusu: form_tetiklendi = True
 
-# --- ÇÖZÜM VE PAYLAŞIM ---
+# --- ÇÖZÜM VE AKSİYONLAR ---
 if form_tetiklendi:
     with st.spinner(random.choice(loading_messages)):
         try:
             ana_prompt = """GÖREV: Soruyu öğrenci gibi çöz. Adım adım git. LaTeX kullanma. Samimi ol. Sonucu net belirt."""
 
+            # HİBRİT MODEL SEÇİMİ
             if gorsel_veri:
                 secilen_model = "gpt-4o"
                 base64_image = base64.b64encode(gorsel_veri).decode('utf-8')
@@ -131,18 +141,36 @@ if form_tetiklendi:
             response = client.chat.completions.create(model=secilen_model, messages=messages, max_tokens=1000)
             cevap = response.choices[0].message.content
             
-            # --- KAĞIT GÖRÜNÜMÜ ---
+            # KAĞIT GÖRÜNÜMÜ
             st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{cevap}</div>""", unsafe_allow_html=True)
 
-            # --- WHATSAPP PAYLAŞ BUTONU (YENİ) ---
+            # --- PAYLAŞIM VE ÇIKTI ALANI ---
             st.write("")
-            st.write("")
-            # Metni URL formatına çevir (Boşlukları %20 yap vs.)
-            paylasim_metni = urllib.parse.quote(f"ÖdevMatik Çözümü:\n\n{cevap}\n\n--- Bu çözüm ÖdevMatik ile yapıldı.")
-            whatsapp_link = f"https://wa.me/?text={paylasim_metni}"
+            st.markdown("### 📤 Paylaş ve Kaydet")
             
-            # Buton olarak göster
-            st.link_button("📲 Çözümü WhatsApp ile Paylaş", whatsapp_link, type="secondary", use_container_width=True)
+            # 1. HAZIRLIK: Metni URL uyumlu hale getir
+            paylasim_metni = urllib.parse.quote(f"ÖdevMatik Çözümü:\n\n{cevap}\n\n--- ÖdevMatik ile çözüldü.")
+            
+            # 2. LİNKLERİ OLUŞTUR
+            # WhatsApp için daha garantili API linki
+            whatsapp_link = f"https://api.whatsapp.com/send?text={paylasim_metni}"
+            # Mail Linki
+            mail_link = f"mailto:?subject=ÖdevMatik Çözümü&body={paylasim_metni}"
+
+            # 3. BUTONLARI YAN YANA DİZ
+            p_col1, p_col2, p_col3 = st.columns(3)
+            
+            with p_col1:
+                st.link_button("💬 WhatsApp", whatsapp_link, use_container_width=True)
+            
+            with p_col2:
+                st.link_button("📧 Mail At", mail_link, use_container_width=True)
+            
+            with p_col3:
+                # Yazdır butonu (JavaScript tetikler)
+                if st.button("🖨️ Yazdır/PDF", use_container_width=True):
+                    # Bu kod tarayıcının "Yazdır" penceresini açar
+                    components.html("<script>window.print()</script>", height=0, width=0)
 
         except Exception as e:
             st.error(f"Hata: {e}")
