@@ -3,44 +3,65 @@ from openai import OpenAI
 import base64
 import random
 
-# --- AYARLAR VE SAYFA YAPISI ---
+# --- AYARLAR ---
 st.set_page_config(
-    page_title="ÖdevMatik",  # Bitişik başlık
+    page_title="ÖdevMatik", 
     page_icon="📝",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# --- YÜKLENİYOR MESAJLARI (Dinamik ve Eğlenceli) ---
+# --- MODERN CSS (BUTONLARI GÜZELLEŞTİRME) ---
+# Bu kod, butonları büyütür, kenarlarını yuvarlar ve mobil uygulama hissi verir.
+st.markdown("""
+<style>
+    div.stButton > button {
+        width: 100%;
+        height: 60px;
+        border-radius: 12px;
+        border: 2px solid #f0f2f6;
+        background-color: white;
+        color: #31333F;
+        font-weight: bold;
+        font-size: 18px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    div.stButton > button:hover {
+        border-color: #4CAF50;
+        color: #4CAF50;
+        transform: translateY(-2px);
+    }
+    div.stButton > button:focus {
+        border-color: #4CAF50;
+        background-color: #e8f5e9;
+        color: #4CAF50;
+    }
+    h1 { text-align: center; color: #1E1E1E; }
+    p { text-align: center; color: #666; }
+</style>
+""", unsafe_allow_html=True)
+
+# --- YÜKLENİYOR MESAJLARI ---
 loading_messages = [
     "Hoca kitapları karıştırıyor... 📚",
     "Formüller hesaplanıyor... 🧮",
     "Beyin fırtınası yapılıyor... 🧠",
-    "Tebeşir tozu yutuluyor... 💨",
     "Çözüm yolda, az sabır... 🚀"
 ]
 
-# --- YAN MENÜ (Sidebar) ---
+# --- SESSION STATE (SEÇİMİ HAFIZADA TUTMAK İÇİN) ---
+if "aktif_mod" not in st.session_state:
+    st.session_state.aktif_mod = "Galeri" # Varsayılan mod
+
+# --- YAN MENÜ ---
 with st.sidebar:
     st.title("📝 Menü")
+    with st.expander("ℹ️ Nasıl Kullanılır?"):
+        st.write("Fotoğrafı yükle veya sorunu yaz, yapay zeka senin için deftere çözsün.")
     
-    # GENİŞLETİLEBİLİR HAKKINDA KUTUSU (Yeni İstek)
-    with st.expander("ℹ️ Nasıl Kullanılır? (Tıkla Oku)"):
-        st.write("""
-        **Adım 1:** Soruyu nasıl soracağını seç (Galeri, Kamera veya Yazı).
-        
-        **Adım 2:** Fotoğrafı yükle veya sorunu detaylıca yaz.
-        
-        **Adım 3:** Mavi butona tıkla ve arkanı yaslan. Yapay zeka çözümü senin için hazırlayacak.
-        
-        ---
-        *İpucu: Yazı ile sorduğun sorular daha hızlı ve ekonomik çözülür!*
-        """)
+    st.divider()
     
-    st.divider() # Çizgi
-    
-    st.header("⚙️ Ayarlar")
-    # Şifre kontrolü (Secrets'tan)
     if "OPENAI_API_KEY" in st.secrets:
         api_key = st.secrets["OPENAI_API_KEY"]
         st.success("✅ Sistem Hazır")
@@ -52,54 +73,64 @@ with st.sidebar:
 
 client = OpenAI(api_key=api_key)
 
-# --- ANA SAYFA BAŞLIĞI ---
-st.markdown("<h1 style='text-align: center;'>📝 ÖdevMatik</h1>", unsafe_allow_html=True)
-st.write("<p style='text-align: center;'>Fotoğraf yükle veya sorunu yaz, çözüm deftere gelsin!</p>", unsafe_allow_html=True)
+# --- ANA BAŞLIK ---
+st.markdown("<h1>📝 ÖdevMatik</h1>", unsafe_allow_html=True)
+st.markdown("<p>Ödev asistanın cebinde!</p>", unsafe_allow_html=True)
 st.divider()
 
-# --- GİRİŞ YÖNTEMİ SEÇİMİ ---
-secim = st.radio("👇 Soruyu nasıl soracaksın?", ["📁 Galeriden Seç", "📸 Kamerayı Aç", "⌨️ Elle Yaz"], horizontal=True)
+# --- MODERN MENÜ (YAN YANA 3 BÜYÜK BUTON) ---
+col1, col2, col3 = st.columns(3)
 
+with col1:
+    if st.button("📁 Galeri"):
+        st.session_state.aktif_mod = "Galeri"
+
+with col2:
+    if st.button("📸 Kamera"):
+        st.session_state.aktif_mod = "Kamera"
+
+with col3:
+    if st.button("⌨️ Yaz"):
+        st.session_state.aktif_mod = "Yaz"
+
+# --- SEÇİME GÖRE İÇERİK GÖSTERME ---
 gorsel_veri = None
 metin_sorusu = None
 form_tetiklendi = False
 
-# --- 1. GALERİ ---
-if secim == "📁 Galeriden Seç":
-    st.info("Aşağıdaki alana tıkla ve fotoğrafı seç")
+# 1. MOD: GALERİ
+if st.session_state.aktif_mod == "Galeri":
+    st.info("📂 **Galeriden Fotoğraf Seç**")
     yuklenen_dosya = st.file_uploader("", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
     if yuklenen_dosya:
         gorsel_veri = yuklenen_dosya.getvalue()
-        st.image(gorsel_veri, caption="Seçilen Fotoğraf", use_column_width=True)
+        st.image(gorsel_veri, caption="Seçilen Fotoğraf", use_container_width=True)
         if st.button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True):
             form_tetiklendi = True
 
-# --- 2. KAMERA ---
-elif secim == "📸 Kamerayı Aç":
-    cekilen_foto = st.camera_input("Kamerayı aç ve çek")
+# 2. MOD: KAMERA
+elif st.session_state.aktif_mod == "Kamera":
+    st.info("📸 **Fotoğraf Çek**")
+    cekilen_foto = st.camera_input("Kamerayı aç")
     if cekilen_foto:
         gorsel_veri = cekilen_foto.getvalue()
         if st.button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True):
             form_tetiklendi = True
 
-# --- 3. METİN (FORM) ---
-elif secim == "⌨️ Elle Yaz":
+# 3. MOD: YAZI
+elif st.session_state.aktif_mod == "Yaz":
+    st.info("⌨️ **Soruyu Elle Yaz**")
     with st.form(key='soru_formu'):
-        metin_sorusu = st.text_area(
-            "Sorunu buraya detaylıca yaz:", 
-            height=150, 
-            placeholder="Matematik veya Sözel sorunu buraya yazabilirsin..."
-        )
+        metin_sorusu = st.text_area("Sorunu buraya yaz:", height=150, placeholder="Matematik, Tarih, Türkçe...")
         gonder_butonu = st.form_submit_button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True)
         if gonder_butonu and metin_sorusu:
             form_tetiklendi = True
 
-# --- ORTAK ÇÖZÜM MOTORU ---
+# --- ÇÖZÜM MOTORU (HİBRİT) ---
 if form_tetiklendi:
-    # Rastgele bir yükleniyor mesajı seç
     spinner_mesaji = random.choice(loading_messages)
     
-    with st.spinner(spinner_mesaji): # Dinamik mesaj burada çıkacak
+    with st.spinner(spinner_mesaji):
         try:
             ana_prompt = """
             GÖREV: Soruyu öğrenci gibi çöz.
@@ -142,7 +173,6 @@ if form_tetiklendi:
         except Exception as e:
             st.error(f"Hata: {e}")
 
-# --- ALT BİLGİ ve UYARI NOTU (Yeni İstek) ---
+# --- YASAL UYARI (SADE) ---
 st.divider()
-st.caption("⚠️ Yasal Uyarı: Bu bir yapay zeka asistanıdır ve nadiren de olsa hatalı sonuçlar üretebilir. Önemli ödevlerinizde sonuçları kontrol etmeniz önerilir.")
-st.caption("© 2024 ÖdevMatik - Made with ❤️")
+st.caption("⚠️ Sonuçlar yapay zeka tarafından üretilmiştir, lütfen kontrol ediniz.")
