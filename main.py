@@ -158,4 +158,33 @@ if form_tetiklendi:
             # KAĞIT GÖRÜNÜMÜ
             st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{cevap}</div>""", unsafe_allow_html=True)
 
-            # --- PAYLA
+            # --- PAYLAŞIM ALANI ---
+            st.write("")
+            st.markdown("### 📤 Paylaş ve Kaydet")
+            
+            paylasim_metni = urllib.parse.quote(f"ÖdevMatik Çözümü:\n\n{cevap}\n\n--- ÖdevMatik ile çözüldü.")
+            whatsapp_link = f"https://api.whatsapp.com/send?text={paylasim_metni}"
+            mail_link = f"mailto:?subject=ÖdevMatik Çözümü&body={paylasim_metni}"
+
+            p_col1, p_col2, p_col3 = st.columns(3)
+            
+            with p_col1:
+                st.link_button("💬 WhatsApp", whatsapp_link, use_container_width=True)
+            
+            with p_col2:
+                st.link_button("📧 Mail At", mail_link, use_container_width=True)
+            
+            with p_col3:
+                # DÜZELTME: Streamlit butonu yerine SAF HTML BUTONU kullanıyoruz.
+                # Bu buton sayfayı yenilemez, direkt JS çalıştırır.
+                st.markdown(f"""
+                <button onclick="window.print()" class="custom-print-btn">
+                    🖨️ Yazdır/PDF
+                </button>
+                """, unsafe_allow_html=True)
+
+        except Exception as e:
+            st.error(f"Hata: {e}")
+
+st.divider()
+st.caption("⚠️ Sonuçlar yapay zeka tarafından üretilmiştir.")
