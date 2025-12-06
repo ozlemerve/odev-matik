@@ -8,7 +8,7 @@ import time
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import extra_streamlit_components as stx
+import extra_streamlit_components as stx # Çerez Yöneticisi
 import datetime
 
 # --- AYARLAR ---
@@ -19,7 +19,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- ÇEREZ YÖNETİCİSİ ---
+# --- ÇEREZ YÖNETİCİSİ (ANTI-REFRESH) ---
 @st.cache_resource(experimental_allow_widgets=True)
 def get_manager():
     return stx.CookieManager()
@@ -144,7 +144,8 @@ with st.sidebar:
             st.rerun()
     else:
         st.title("👤 Misafir Modu")
-        # MİSAFİR KONTROLÜ
+        
+        # MİSAFİR KONTROLÜ (ÇEREZ OKUMA)
         guest_cookie = cookie_manager.get("guest_used")
         
         if guest_cookie:
@@ -165,7 +166,7 @@ with st.sidebar:
                         st.session_state.logged_in = True
                         st.session_state.username = l_user
                         st.rerun()
-                    else: st.error("Hatalı!")
+                    else: st.error("Hata!")
 
         with tab2:
             st.caption("5 Hediye Hak Kazan! 🎁")
@@ -209,7 +210,7 @@ if "aktif_mod" not in st.session_state: st.session_state.aktif_mod = "Galeri"
 
 st.divider()
 
-# MİSAFİR KİLİDİ
+# MİSAFİR KİLİDİ (ÇEREZ VARSA DURDUR)
 guest_cookie = cookie_manager.get("guest_used")
 if not st.session_state.logged_in and guest_cookie:
     st.warning("⚠️ Misafir hakkını kullandın! Devam etmek için lütfen soldan **Ücretsiz Kayıt Ol**.")
@@ -241,8 +242,9 @@ elif st.session_state.aktif_mod == "Yaz":
         submit_soru = st.form_submit_button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True)
         if submit_soru and metin_sorusu: form_tetiklendi = True
 
+# --- ÇÖZÜM MOTORU ---
 if form_tetiklendi:
-    # KREDİ DÜŞME & ÇEREZ ATMA
+    # 1. KREDİ DÜŞME / ÇEREZ ATMA
     if st.session_state.logged_in:
         kredi = get_credit(st.session_state.username)
         if kredi <= 0:
@@ -251,7 +253,7 @@ if form_tetiklendi:
         deduct_credit(st.session_state.username)
         st.toast("1 Hak düştü!", icon="🎫")
     else:
-        # Misafir damgası (1 gün geçerli)
+        # Misafir damgası bas (1 gün geçerli)
         cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
         st.toast("Misafir hakkın kullanıldı!", icon="🎁")
 
@@ -270,7 +272,6 @@ if form_tetiklendi:
             response = client.chat.completions.create(model=secilen_model, messages=messages, max_tokens=1000)
             cevap = response.choices[0].message.content
             
-            # --- CSS DÜZELTİLDİ: TEK SATIRDA YAZILDI ---
             st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{cevap}</div>""", unsafe_allow_html=True)
 
             st.write("")
@@ -286,4 +287,4 @@ if form_tetiklendi:
             st.error(f"Hata: {e}")
 
 st.divider()
-st.caption("⚠️ **Yasal Uyarı:** Sonuçlar yapay zeka tarafından üretilmiştir.")
+st.caption("⚠️ **Yasal Uyarı:** Sonuçlar yapay zeka tarafından üretilmiştir ve hatalı olabilir.")
