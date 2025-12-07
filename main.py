@@ -19,8 +19,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager()
+# --- ÇEREZ YÖNETİCİSİ (CACHE İLE SAĞLAMLAŞTIRILDI) ---
+# Bu @st.cache_resource komutu, yöneticinin her yenilemede sıfırlanmasını önler.
+@st.cache_resource
+def get_manager():
+    return stx.CookieManager(key="odevmatik_auth")
+
+cookie_manager = get_manager()
 
 # --- VERİTABANI ---
 def init_db():
@@ -145,8 +150,10 @@ if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
 
-# 🚀 KALICI OTURUM KONTROLÜ (YENİ)
-# Sayfa yenilense bile çereze bakıp oturumu geri açar
+# 🚀 KALICI OTURUM KONTROLÜ (GÜÇLENDİRİLMİŞ)
+# Sayfa her yüklendiğinde çereze bakar. 
+# time.sleep(0.1) ekleyerek çerezin okunmasına fırsat veriyoruz.
+time.sleep(0.1) 
 try:
     user_cookie = cookie_manager.get("user_token")
     if user_cookie and not st.session_state.logged_in:
@@ -184,7 +191,7 @@ with col_auth:
                         if login_user(l_user, l_pass):
                             st.session_state.logged_in = True
                             st.session_state.username = l_user
-                            # 🚀 ÇEREZ KAYDET (30 GÜN)
+                            # ÇEREZ KAYDET (30 GÜN)
                             cookie_manager.set("user_token", l_user, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             st.rerun()
                         else: st.error("Hatalı!")
@@ -206,7 +213,6 @@ with col_auth:
                                 st.success("Oldu! Giriş yap.")
                                 st.session_state.verification_code = None
     else:
-        # GİRİŞ YAPILMIŞSA SADE GÖRÜNÜM
         kredi = get_credit(st.session_state.username)
         st.info(f"👤 **{st.session_state.username.split('@')[0]}**")
         st.caption(f"🎫 Kalan Hak: **{kredi}**")
@@ -254,11 +260,9 @@ with st.sidebar:
                     st.success("İletildi.")
         
         st.divider()
-        # ÇIKIŞ BUTONU BURAYA GELDİ
         if st.button("🚪 Çıkış Yap"):
             st.session_state.logged_in = False
             st.session_state.username = "Misafir"
-            # 🚀 ÇEREZİ SİL (ÇIKIŞ)
             cookie_manager.delete("user_token")
             time.sleep(0.5)
             st.rerun()
@@ -280,6 +284,7 @@ with st.sidebar:
 
 guest_locked = False
 try:
+    # Eğer giriş yapmamışsa ve misafir çerezi varsa kilitle
     if not st.session_state.logged_in and cookie_manager.get("guest_used"):
         guest_locked = True
 except: pass
@@ -303,6 +308,7 @@ gorsel_veri = None
 metin_sorusu = None
 form_tetiklendi = False
 
+# Giriş alanlarını göster (Kilitli değilse veya giriş yapmışsa)
 if not guest_locked or st.session_state.logged_in:
     if st.session_state.aktif_mod == "Galeri":
         st.info("📂 **Galeriden Seç**")
@@ -337,6 +343,7 @@ if form_tetiklendi:
         else:
             st.error("😔 Hakkın bitti!")
     else:
+        # Misafir Modu
         try:
             cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
             st.toast("Misafir hakkın kullanıldı!", icon="🎁")
@@ -383,4 +390,4 @@ if st.session_state.son_cevap:
     with p_col2: st.link_button("📧 Mail At", mail_link, use_container_width=True)
 
 st.divider()
-st.caption("⚠️ **Yasal Uyarı:** Sonuçlar yapay zeka tarafından üretilmiştir ve hatalı olabilir. Lütfen kontrol ediniz.")
+st.caption("⚠️ **Yasal Uyarı:** Sonuçlar yapay zeka tarafından üretilmiştir ve hatalı olabilir.")
