@@ -19,17 +19,19 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- ÇEREZ YÖNETİCİSİ (DÜZELTİLDİ) ---
-# Hata veren @st.cache_resource kaldırıldı.
+# --- ÇEREZ YÖNETİCİSİ ---
 cookie_manager = stx.CookieManager()
 
 # --- VERİTABANI ---
 def init_db():
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
+    # Kullanıcılar
     c.execute('CREATE TABLE IF NOT EXISTS usersTable (username TEXT PRIMARY KEY, password TEXT, credit INTEGER)')
+    # Geçmiş
     c.execute('''CREATE TABLE IF NOT EXISTS historyTable 
                  (username TEXT, question TEXT, answer TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+    # Geri Bildirim
     c.execute('CREATE TABLE IF NOT EXISTS feedbackTable (username TEXT, message TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)')
     conn.commit()
     conn.close()
@@ -140,13 +142,22 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- OTURUM BAŞLATMA ---
+# --- OTURUM ---
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
 
-# API KEY KONTROL
+# KALICI OTURUM KONTROLÜ
+time.sleep(0.1)
+try:
+    user_cookie = cookie_manager.get("user_token")
+    if user_cookie and not st.session_state.logged_in:
+        st.session_state.logged_in = True
+        st.session_state.username = user_cookie
+except:
+    pass
+
 if "OPENAI_API_KEY" in st.secrets:
     api_key = st.secrets["OPENAI_API_KEY"]
 else:
@@ -155,16 +166,8 @@ else:
 
 client = OpenAI(api_key=api_key)
 
-# 🚀 KALICI OTURUM KONTROLÜ (GÜÇLENDİRİLMİŞ)
-# Sayfa her açıldığında çerezleri kontrol et
-# time.sleep eklemiyoruz, direkt CookieManager'ın yüklenmesini bekliyoruz
-auth_cookie = cookie_manager.get("user_token")
-if auth_cookie and not st.session_state.logged_in:
-    st.session_state.logged_in = True
-    st.session_state.username = auth_cookie
-
 # ==========================================
-# ÜST BAR (HEADER)
+# ÜST BAR (GİRİŞ BURADA)
 # ==========================================
 col_logo, col_auth = st.columns([2, 1])
 
@@ -184,7 +187,7 @@ with col_auth:
                         if login_user(l_user, l_pass):
                             st.session_state.logged_in = True
                             st.session_state.username = l_user
-                            # ÇEREZ KAYDET (30 GÜN)
+                            # Çerez Kaydet
                             cookie_manager.set("user_token", l_user, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             st.rerun()
                         else: st.error("Hatalı!")
@@ -202,3 +205,192 @@ with col_auth:
                     kod_gir = st.text_input("Kod:")
                     if st.button("Onayla"):
                         if kod_gir == st.session_state.verification_code:
+                            if add_user(r_email, r_pass):
+                                st.success("Oldu! Giriş yap.")
+                                st.session_state.verification_code = None
+    else:
+        kredi = get_credit(st.session_state.username)
+        st.info(f"👤 **{st.session_state.username.split('@')[0]}**")
+        st.caption(f"🎫 Kalan Hak: **{kredi}**")
+
+st.divider()
+
+# ==========================================
+# YAN MENÜ (DOLU DOLU)
+# ==========================================
+with st.sidebar:
+    st.title("🗂️ Öğrenci Paneli")
+    
+    if st.session_state.logged_in:
+        total_solved = get_total_solved(st.session_state.username)
+        if total_solved < 5: rutbe = "Çırak 👶"
+        elif total_solved < 20: rutbe = "Kalfa 🧑‍🎓"
+        elif total_solved < 50: rutbe = "Usta 👨‍🏫"
+        else: rutbe = "Profesör 🧙‍♂️"
+        
+        st.write(f"**Rütben:** {rutbe}")
+        
+        c1, c2 = st.columns(2)
+        with c1: st.markdown(f"<div class='stat-box'><div class='stat-title'>Çözülen</div><div class='stat-value'>{total_solved}</div></div>", unsafe_allow_html=True)
+        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Hak</div><div class='stat-value'>{get_credit(st.session_state.username)}</div></div>", unsafe_allow_html=True)
+        
+        st.divider()
+
+        with st.expander("📜 Geçmiş Çözümlerim"):
+            gecmis_veriler = get_user_history(st.session_state.username)
+            if gecmis_veriler:
+                for soru, cevap, zaman in gecmis_veriler:
+                    st.text(f"📅 {zaman[:10]}")
+                    st.caption(f"❓ {soru[:30]}...")
+                    with st.popover("Cevabı Gör"):
+                        st.write(cevap)
+            else: st.caption("Henüz soru çözmedin.")
+
+        st.divider()
+
+        with st.expander("💬 Bize Ulaşın"):
+            with st.form("feedback_form"):
+                feedback_msg = st.text_area("Mesajınız:")
+                if st.form_submit_button("Gönder"):
+                    save_feedback(st.session_state.username, feedback_msg)
+                    st.success("İletildi.")
+        
+        st.divider()
+        if st.button("🚪 Çıkış Yap"):
+            st.session_state.logged_in = False
+            st.session_state.username = "Misafir"
+            cookie_manager.delete("user_token")
+            time.sleep(0.5)
+            st.rerun()
+
+    else:
+        st.warning("⚠️ Misafir Modu")
+        st.info("🎁 **Üye ol, 5 soru hakkı kazan!**")
+    
+    st.divider()
+    # Test için sıfırlama butonu (Gerekirse kaldır)
+    if st.checkbox("Admin Modu"):
+        if st.button("Misafir Hakkını Sıfırla"):
+            try: cookie_manager.delete("guest_used"); st.rerun()
+            except: pass
+
+# ==========================================
+# ANA EKRAN AKIŞI
+# ==========================================
+
+guest_locked = False
+try:
+    if not st.session_state.logged_in and cookie_manager.get("guest_used"):
+        guest_locked = True
+except: pass
+
+if guest_locked and not st.session_state.logged_in:
+    st.warning("⚠️ Misafir hakkını kullandın! Devam etmek için sağ üstten **Giriş Yap** veya **Kayıt Ol**.")
+
+col1, col2, col3 = st.columns(3)
+with col1:
+    if st.button("📁 Galeri", use_container_width=True): st.session_state.aktif_mod = "Galeri"
+with col2:
+    if st.button("📸 Kamera", use_container_width=True): st.session_state.aktif_mod = "Kamera"
+with col3:
+    if st.button("⌨️ Yaz", use_container_width=True): st.session_state.aktif_mod = "Yaz"
+
+if "aktif_mod" not in st.session_state: st.session_state.aktif_mod = "Galeri"
+
+st.write("")
+
+gorsel_veri = None
+metin_sorusu = None
+form_tetiklendi = False
+
+if not guest_locked or st.session_state.logged_in:
+    if st.session_state.aktif_mod == "Galeri":
+        st.info("📂 **Galeriden Seç**")
+        yuklenen_dosya = st.file_uploader("", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
+        if yuklenen_dosya:
+            gorsel_veri = yuklenen_dosya.getvalue()
+            if st.button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True): form_tetiklendi = True
+
+    elif st.session_state.aktif_mod == "Kamera":
+        st.info("📸 **Fotoğraf Çek**")
+        cekilen_foto = st.camera_input("Kamerayı aç")
+        if cekilen_foto:
+            gorsel_veri = cekilen_foto.getvalue()
+            if st.button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True): form_tetiklendi = True
+
+    elif st.session_state.aktif_mod == "Yaz":
+        st.info("⌨️ **Soruyu Elle Yaz**")
+        with st.form(key='soru_yazma_formu'):
+            metin_sorusu = st.text_area("", height=150, placeholder="Sorunu buraya yaz...")
+            st.write("")
+            submit_soru = st.form_submit_button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True)
+            if submit_soru and metin_sorusu: form_tetiklendi = True
+
+if form_tetiklendi:
+    can_proceed = False
+    if st.session_state.logged_in:
+        kredi = get_credit(st.session_state.username)
+        if kredi > 0:
+            deduct_credit(st.session_state.username)
+            st.toast("1 Hak düştü!", icon="🎫")
+            can_proceed = True
+        else:
+            st.error("😔 Hakkın bitti!")
+    else:
+        try:
+            cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
+            st.toast("Misafir hakkın kullanıldı!", icon="🎁")
+            can_proceed = True
+        except: pass
+
+    if can_proceed:
+        with st.spinner(random.choice(["Hoca bakıyor...", "Çözülüyor..."])):
+            try:
+                ana_prompt = """GÖREV: Soruyu öğrenci gibi çöz. Adım adım git. LaTeX kullanma. Samimi ol."""
+
+                if gorsel_veri:
+                    secilen_model = "gpt-4o"
+                    base64_image = base64.b64encode(gorsel_veri).decode('utf-8')
+                    messages = [
+                        {"role": "system", "content": ana_prompt},
+                        {"role": "user", "content": [
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                        ]}
+                    ]
+                elif metin_sorusu:
+                    secilen_model = "gpt-4o-mini"
+                    messages = [
+                        {"role": "system", "content": ana_prompt},
+                        {"role": "user", "content": f"Soru: {metin_sorusu}"}
+                    ]
+
+                response = client.chat.completions.create(model=secilen_model, messages=messages, max_tokens=1000)
+                cevap = response.choices[0].message.content
+                
+                # GEÇMİŞE KAYDET
+                if st.session_state.logged_in:
+                    # Soru metnini belirle
+                    if metin_sorusu: kayit_sorusu = metin_sorusu
+                    else: kayit_sorusu = "Fotoğraflı Soru"
+                    save_history(st.session_state.username, kayit_sorusu, cevap)
+                
+                st.session_state.son_cevap = cevap
+                st.rerun()
+
+            except Exception as e:
+                st.error(f"Hata: {e}")
+
+if st.session_state.son_cevap:
+    st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{st.session_state.son_cevap}</div>""", unsafe_allow_html=True)
+    
+    st.write("")
+    st.markdown("### 📤 Paylaş")
+    paylasim_metni = urllib.parse.quote(f"ÖdevMatik Çözümü:\n\n{st.session_state.son_cevap}\n\n--- ÖdevMatik ile çözüldü.")
+    whatsapp_link = f"https://api.whatsapp.com/send?text={paylasim_metni}"
+    mail_link = f"mailto:?subject=ÖdevMatik Çözümü&body={paylasim_metni}"
+    p_col1, p_col2 = st.columns(2)
+    with p_col1: st.link_button("💬 WhatsApp", whatsapp_link, use_container_width=True)
+    with p_col2: st.link_button("📧 Mail At", mail_link, use_container_width=True)
+
+st.divider()
+st.caption("⚠️ **Yasal Uyarı:** Sonuçlar yapay zeka tarafından üretilmiştir ve hatalı olabilir.")
