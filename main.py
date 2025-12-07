@@ -8,7 +8,7 @@ import time
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import extra_streamlit_components as stx # Çerez Yöneticisi
+import extra_streamlit_components as stx
 import datetime
 
 # --- AYARLAR ---
@@ -19,12 +19,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- ÇEREZ YÖNETİCİSİ (ANTI-REFRESH) ---
-@st.cache_resource(experimental_allow_widgets=True)
-def get_manager():
-    return stx.CookieManager()
-
-cookie_manager = get_manager()
+# --- ÇEREZ YÖNETİCİSİ (DÜZELTİLEN KISIM) ---
+# Eski @st.cache_resource kısmını kaldırdık, direkt çağırıyoruz.
+cookie_manager = stx.CookieManager()
 
 # --- VERİTABANI ---
 def init_db():
@@ -81,7 +78,8 @@ def send_verification_email(to_email, code):
         return False
     
     subject = "ÖdevMatik Doğrulama Kodu"
-    body = f"Merhaba,\n\nKodunuz: {code}\n\nÖdevMatik Ekibi"
+    body = f"Merhaba,\n\nÖdevMatik kayıt işleminiz için doğrulama kodunuz: {code}\n\nBu kodu kimseyle paylaşmayın.\n\nSevgiler,\nÖdevMatik Ekibi"
+    
     msg = MIMEMultipart()
     msg['From'] = f"ÖdevMatik Güvenlik <{sender_email}>"
     msg['To'] = to_email
@@ -144,9 +142,11 @@ with st.sidebar:
             st.rerun()
     else:
         st.title("👤 Misafir Modu")
-        
-        # MİSAFİR KONTROLÜ (ÇEREZ OKUMA)
-        guest_cookie = cookie_manager.get("guest_used")
+        # MİSAFİR KONTROLÜ
+        try:
+            guest_cookie = cookie_manager.get("guest_used")
+        except:
+            guest_cookie = None
         
         if guest_cookie:
             st.error("🔒 Deneme hakkın bitti!")
@@ -166,7 +166,7 @@ with st.sidebar:
                         st.session_state.logged_in = True
                         st.session_state.username = l_user
                         st.rerun()
-                    else: st.error("Hata!")
+                    else: st.error("Hatalı!")
 
         with tab2:
             st.caption("5 Hediye Hak Kazan! 🎁")
@@ -210,8 +210,12 @@ if "aktif_mod" not in st.session_state: st.session_state.aktif_mod = "Galeri"
 
 st.divider()
 
-# MİSAFİR KİLİDİ (ÇEREZ VARSA DURDUR)
-guest_cookie = cookie_manager.get("guest_used")
+# MİSAFİR KİLİDİ
+try:
+    guest_cookie = cookie_manager.get("guest_used")
+except:
+    guest_cookie = None
+
 if not st.session_state.logged_in and guest_cookie:
     st.warning("⚠️ Misafir hakkını kullandın! Devam etmek için lütfen soldan **Ücretsiz Kayıt Ol**.")
     st.stop()
@@ -244,7 +248,6 @@ elif st.session_state.aktif_mod == "Yaz":
 
 # --- ÇÖZÜM MOTORU ---
 if form_tetiklendi:
-    # 1. KREDİ DÜŞME / ÇEREZ ATMA
     if st.session_state.logged_in:
         kredi = get_credit(st.session_state.username)
         if kredi <= 0:
@@ -253,9 +256,12 @@ if form_tetiklendi:
         deduct_credit(st.session_state.username)
         st.toast("1 Hak düştü!", icon="🎫")
     else:
-        # Misafir damgası bas (1 gün geçerli)
-        cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
-        st.toast("Misafir hakkın kullanıldı!", icon="🎁")
+        # Misafir damgası
+        try:
+            cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
+            st.toast("Misafir hakkın kullanıldı!", icon="🎁")
+        except:
+            pass # Çerez hatası olursa akışı bozma
 
     with st.spinner(random.choice(["Hoca bakıyor...", "Çözülüyor..."])):
         try:
@@ -267,24 +273,4 @@ if form_tetiklendi:
                 messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}]}]
             elif metin_sorusu:
                 secilen_model = "gpt-4o-mini"
-                messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": f"Soru: {metin_sorusu}"}]
-
-            response = client.chat.completions.create(model=secilen_model, messages=messages, max_tokens=1000)
-            cevap = response.choices[0].message.content
-            
-            st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{cevap}</div>""", unsafe_allow_html=True)
-
-            st.write("")
-            st.markdown("### 📤 Paylaş")
-            paylasim_metni = urllib.parse.quote(f"ÖdevMatik Çözümü:\n\n{cevap}\n\n--- ÖdevMatik ile çözüldü.")
-            whatsapp_link = f"https://api.whatsapp.com/send?text={paylasim_metni}"
-            mail_link = f"mailto:?subject=ÖdevMatik Çözümü&body={paylasim_metni}"
-            p_col1, p_col2 = st.columns(2)
-            with p_col1: st.link_button("💬 WhatsApp", whatsapp_link, use_container_width=True)
-            with p_col2: st.link_button("📧 Mail At", mail_link, use_container_width=True)
-
-        except Exception as e:
-            st.error(f"Hata: {e}")
-
-st.divider()
-st.caption("⚠️ **Yasal Uyarı:** Sonuçlar yapay zeka tarafından üretilmiştir ve hatalı olabilir.")
+                messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content":
