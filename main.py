@@ -20,7 +20,25 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager()
+# key="auth" diyerek yöneticiyi sabitliyoruz
+cookie_manager = stx.CookieManager(key="auth_manager")
+
+# --- OTURUM BAŞLATMA (EN BAŞTA YAPILMALI) ---
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "username" not in st.session_state:
+    st.session_state.username = "Misafir"
+
+# 🚀 KRİTİK HAMLE: ÇEREZ KONTROLÜ (GECİKMESİZ)
+# Tarayıcıdan gelen çerezi oku
+try:
+    user_token = cookie_manager.get(cookie="user_token")
+    # Eğer çerez varsa ve sistemde giriş yapılmamış görünüyorsa, zorla giriş yaptır.
+    if user_token and not st.session_state.logged_in:
+        st.session_state.logged_in = True
+        st.session_state.username = user_token
+except:
+    pass # Çerez henüz yüklenmediyse pas geç
 
 # --- VERİTABANI ---
 def init_db():
@@ -139,26 +157,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- OTURUM BAŞLANGIÇ ---
-if "logged_in" not in st.session_state: st.session_state.logged_in = False
-if "username" not in st.session_state: st.session_state.username = "Misafir"
+# --- DİĞER SESSION STATE ---
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
 
-# --- 🚀 KRİTİK DÜZELTME: ÇEREZ OKUMA MANTIĞI ---
-# 1. Çerezlerin yüklenmesini bekle (Gecikme)
-time.sleep(0.3) 
-# 2. Tüm çerezleri al ve kontrol et
-cookies = cookie_manager.get_all()
-
-if not st.session_state.logged_in:
-    if "user_token" in cookies:
-        # Çerez varsa oturumu aç
-        st.session_state.logged_in = True
-        st.session_state.username = cookies["user_token"]
-        st.rerun() # Sayfayı hemen yenile ki giriş yapmış olarak açılsın
-
-# API KEY
 if "OPENAI_API_KEY" in st.secrets:
     api_key = st.secrets["OPENAI_API_KEY"]
 else:
@@ -168,7 +170,7 @@ else:
 client = OpenAI(api_key=api_key)
 
 # ==========================================
-# ÜST BAR (HEADER)
+# ÜST BAR (GİRİŞ EKRANI)
 # ==========================================
 col_logo, col_auth = st.columns([2, 1])
 
@@ -184,14 +186,20 @@ with col_auth:
                 with st.form("top_login"):
                     l_user = st.text_input("Email", label_visibility="collapsed", placeholder="Email")
                     l_pass = st.text_input("Şifre", type="password", label_visibility="collapsed", placeholder="Şifre")
+                    
+                    # GİRİŞ BUTONU
                     if st.form_submit_button("Giriş Yap", type="primary"):
                         if login_user(l_user, l_pass):
+                            # 1. HEMEN MANUEL OLARAK AÇ
                             st.session_state.logged_in = True
                             st.session_state.username = l_user
-                            # 🚀 ÇEREZİ KAYDET (30 GÜN)
-                            cookie_manager.set("user_token", l_user, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+                            # 2. ÇEREZİ KAYDET (30 Günlük)
+                            cookie_manager.set("user_token", l_user, key="set_token", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+                            st.success("Giriş yapıldı!")
+                            time.sleep(0.5)
                             st.rerun()
                         else: st.error("Hatalı!")
+            
             with tab_register:
                 r_email = st.text_input("Email", key="r_email")
                 r_pass = st.text_input("Şifre", type="password", key="r_pass")
@@ -262,7 +270,6 @@ with st.sidebar:
             st.session_state.username = "Misafir"
             # ÇEREZİ SİL
             cookie_manager.delete("user_token")
-            time.sleep(0.5)
             st.rerun()
 
     else:
@@ -281,14 +288,12 @@ with st.sidebar:
 
 guest_locked = False
 try:
-    if not st.session_state.logged_in:
-        # Çerezleri tekrar kontrol et
-        cookies = cookie_manager.get_all()
-        if "guest_used" in cookies:
-            guest_locked = True
+    # Eğer giriş yapmamışsa ve misafir çerezi varsa kilitle
+    if not st.session_state.logged_in and cookie_manager.get("guest_used"):
+        guest_locked = True
 except: pass
 
-# --- SONUÇ GÖSTERİMİ ---
+# SONUÇ GÖSTERİMİ (HER ZAMAN GÖSTER)
 if st.session_state.son_cevap:
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{st.session_state.son_cevap}</div>""", unsafe_allow_html=True)
     
@@ -302,9 +307,9 @@ if st.session_state.son_cevap:
     with p_col2: st.link_button("📧 Mail At", mail_link, use_container_width=True)
     st.divider()
 
-# --- YENİ SORU ALANI (Kilitliyse gösterme) ---
+# YENİ SORU ALANI (KİLİT KONTROLÜ)
 if guest_locked and not st.session_state.logged_in:
-    st.warning("⚠️ Misafir hakkını kullandın! Devam etmek için sağ üstten **Giriş Yap** veya **Kayıt Ol**.")
+    st.warning("⚠️ Misafir hakkını kullandın! Yeni soru için lütfen sağ üstten **Giriş Yap** veya **Kayıt Ol**.")
 else:
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -344,7 +349,6 @@ else:
             submit_soru = st.form_submit_button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True)
             if submit_soru and metin_sorusu: form_tetiklendi = True
 
-    # --- ÇÖZÜM MOTORU ---
     if form_tetiklendi:
         can_proceed = False
         if st.session_state.logged_in:
@@ -369,23 +373,4 @@ else:
 
                     if gorsel_veri:
                         secilen_model = "gpt-4o"
-                        base64_image = base64.b64encode(gorsel_veri).decode('utf-8')
-                        messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}]}]
-                    elif metin_sorusu:
-                        secilen_model = "gpt-4o-mini"
-                        messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": f"Soru: {metin_sorusu}"}]
-
-                    response = client.chat.completions.create(model=secilen_model, messages=messages, max_tokens=1000)
-                    cevap = response.choices[0].message.content
-                    
-                    if st.session_state.logged_in:
-                        save_history(st.session_state.username, "Soru", cevap)
-                    
-                    st.session_state.son_cevap = cevap
-                    st.rerun()
-
-                except Exception as e:
-                    st.error(f"Hata: {e}")
-
-st.divider()
-st.caption("⚠️ **Yasal Uyarı:** Sonuçlar yapay zeka tarafından üretilmiştir ve hatalı olabilir.")
+                        base64_image = base64.b64encode(gorsel_veri).decode('
