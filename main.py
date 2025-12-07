@@ -273,4 +273,24 @@ if form_tetiklendi:
                 messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}]}]
             elif metin_sorusu:
                 secilen_model = "gpt-4o-mini"
-                messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content":
+                messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": f"Soru: {metin_sorusu}"}]
+
+            response = client.chat.completions.create(model=secilen_model, messages=messages, max_tokens=1000)
+            cevap = response.choices[0].message.content
+            
+            st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{cevap}</div>""", unsafe_allow_html=True)
+
+            st.write("")
+            st.markdown("### 📤 Paylaş")
+            paylasim_metni = urllib.parse.quote(f"ÖdevMatik Çözümü:\n\n{cevap}\n\n--- ÖdevMatik ile çözüldü.")
+            whatsapp_link = f"https://api.whatsapp.com/send?text={paylasim_metni}"
+            mail_link = f"mailto:?subject=ÖdevMatik Çözümü&body={paylasim_metni}"
+            p_col1, p_col2 = st.columns(2)
+            with p_col1: st.link_button("💬 WhatsApp", whatsapp_link, use_container_width=True)
+            with p_col2: st.link_button("📧 Mail At", mail_link, use_container_width=True)
+
+        except Exception as e:
+            st.error(f"Hata: {e}")
+
+st.divider()
+st.caption("⚠️ **Yasal Uyarı:** Sonuçlar yapay zeka tarafından üretilmiştir ve hatalı olabilir. Lütfen kontrol ediniz.")
