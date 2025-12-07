@@ -29,7 +29,6 @@ def init_db():
     c.execute('CREATE TABLE IF NOT EXISTS usersTable (username TEXT PRIMARY KEY, password TEXT, credit INTEGER)')
     c.execute('''CREATE TABLE IF NOT EXISTS historyTable 
                  (username TEXT, question TEXT, answer TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
-    # Geri bildirim tablosu (YENİ)
     c.execute('CREATE TABLE IF NOT EXISTS feedbackTable (username TEXT, message TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)')
     conn.commit()
     conn.close()
@@ -84,7 +83,6 @@ def get_user_history(username):
     conn.close()
     return data
 
-# TOPLAM ÇÖZÜLEN SORU SAYISINI GETİR (RÜTBE İÇİN)
 def get_total_solved(username):
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
@@ -93,7 +91,6 @@ def get_total_solved(username):
     conn.close()
     return data[0] if data else 0
 
-# GERİ BİLDİRİM KAYDETME
 def save_feedback(username, message):
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
@@ -136,27 +133,27 @@ st.markdown("""
     div.stButton > button { width: 100%; border-radius: 10px; height: 50px; font-weight: bold; }
     a[href*="whatsapp"] button { color: #25D366 !important; border-color: #25D366 !important; }
     a[href^="mailto"] button { color: #0078D4 !important; border-color: #0078D4 !important; }
-    .login-container { border: 1px solid #ddd; padding: 10px; border-radius: 10px; background-color: #f9f9f9; }
-    
-    /* İstatistik Kutuları */
-    .stat-box {
-        background-color: #e3f2fd;
-        padding: 10px;
-        border-radius: 8px;
-        text-align: center;
-        margin-bottom: 10px;
-        border: 1px solid #90caf9;
-    }
+    .stat-box { background-color: #e3f2fd; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 10px; border: 1px solid #90caf9; }
     .stat-title { font-size: 14px; color: #555; }
     .stat-value { font-size: 24px; font-weight: bold; color: #1565c0; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- OTURUM VE HAFIZA ---
+# --- OTURUM BAŞLATMA VE KONTROL ---
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
+
+# 🚀 KALICI OTURUM KONTROLÜ (YENİ)
+# Sayfa yenilense bile çereze bakıp oturumu geri açar
+try:
+    user_cookie = cookie_manager.get("user_token")
+    if user_cookie and not st.session_state.logged_in:
+        st.session_state.logged_in = True
+        st.session_state.username = user_cookie
+except:
+    pass
 
 if "OPENAI_API_KEY" in st.secrets:
     api_key = st.secrets["OPENAI_API_KEY"]
@@ -187,6 +184,8 @@ with col_auth:
                         if login_user(l_user, l_pass):
                             st.session_state.logged_in = True
                             st.session_state.username = l_user
+                            # 🚀 ÇEREZ KAYDET (30 GÜN)
+                            cookie_manager.set("user_token", l_user, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             st.rerun()
                         else: st.error("Hatalı!")
             with tab_register:
@@ -207,43 +206,34 @@ with col_auth:
                                 st.success("Oldu! Giriş yap.")
                                 st.session_state.verification_code = None
     else:
+        # GİRİŞ YAPILMIŞSA SADE GÖRÜNÜM
         kredi = get_credit(st.session_state.username)
-        st.success(f"👤 {st.session_state.username.split('@')[0]}")
+        st.info(f"👤 **{st.session_state.username.split('@')[0]}**")
         st.caption(f"🎫 Kalan Hak: **{kredi}**")
-        if st.button("Çıkış", use_container_width=True):
-            st.session_state.logged_in = False
-            st.session_state.username = "Misafir"
-            st.rerun()
 
 st.divider()
 
 # ==========================================
-# YAN MENÜ (DOLU DOLU VERSİYON)
+# YAN MENÜ (PROFIL & AYARLAR)
 # ==========================================
 with st.sidebar:
     st.title("🗂️ Öğrenci Paneli")
     
     if st.session_state.logged_in:
-        # 1. RÜTBE VE İSTATİSTİK
         total_solved = get_total_solved(st.session_state.username)
-        
-        # Rütbe Hesaplama
         if total_solved < 5: rutbe = "Çırak 👶"
         elif total_solved < 20: rutbe = "Kalfa 🧑‍🎓"
         elif total_solved < 50: rutbe = "Usta 👨‍🏫"
         else: rutbe = "Profesör 🧙‍♂️"
         
-        st.info(f"**Rütben:** {rutbe}")
+        st.write(f"**Rütben:** {rutbe}")
         
         c1, c2 = st.columns(2)
-        with c1:
-            st.markdown(f"<div class='stat-box'><div class='stat-title'>Çözülen</div><div class='stat-value'>{total_solved}</div></div>", unsafe_allow_html=True)
-        with c2:
-            st.markdown(f"<div class='stat-box'><div class='stat-title'>Kalan Hak</div><div class='stat-value'>{get_credit(st.session_state.username)}</div></div>", unsafe_allow_html=True)
+        with c1: st.markdown(f"<div class='stat-box'><div class='stat-title'>Çözülen</div><div class='stat-value'>{total_solved}</div></div>", unsafe_allow_html=True)
+        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Hak</div><div class='stat-value'>{get_credit(st.session_state.username)}</div></div>", unsafe_allow_html=True)
         
         st.divider()
 
-        # 2. GEÇMİŞ
         with st.expander("📜 Geçmiş Çözümlerim"):
             gecmis_veriler = get_user_history(st.session_state.username)
             if gecmis_veriler:
@@ -252,34 +242,35 @@ with st.sidebar:
                     st.caption(f"❓ {soru[:30]}...")
                     with st.popover("Cevabı Gör"):
                         st.write(cevap)
-            else:
-                st.caption("Henüz soru çözmedin.")
+            else: st.caption("Henüz soru çözmedin.")
 
         st.divider()
 
-        # 3. İLETİŞİM KUTUSU
-        with st.expander("💬 Bize Ulaşın / Hata Bildir"):
+        with st.expander("💬 Bize Ulaşın"):
             with st.form("feedback_form"):
-                feedback_msg = st.text_area("Mesajınız:", placeholder="Hata mı var? Öneri mi?")
+                feedback_msg = st.text_area("Mesajınız:")
                 if st.form_submit_button("Gönder"):
                     save_feedback(st.session_state.username, feedback_msg)
-                    st.success("Mesajın bize ulaştı! Teşekkürler.")
+                    st.success("İletildi.")
+        
+        st.divider()
+        # ÇIKIŞ BUTONU BURAYA GELDİ
+        if st.button("🚪 Çıkış Yap"):
+            st.session_state.logged_in = False
+            st.session_state.username = "Misafir"
+            # 🚀 ÇEREZİ SİL (ÇIKIŞ)
+            cookie_manager.delete("user_token")
+            time.sleep(0.5)
+            st.rerun()
 
     else:
-        # GİRİŞ YAPMAMIŞSA
-        st.warning("⚠️ Tüm özellikler için giriş yapmalısın.")
+        st.warning("⚠️ Misafir Modu")
         st.info("🎁 **Üye ol, 5 soru hakkı kazan!**")
         st.write("Misafir modunda sadece 1 hakkın var.")
 
-    # 4. APP VERSİYONU (EN ALTTA)
     st.divider()
-    st.caption("v15.0 • ÖdevMatik")
-    if st.button("📲 Uygulamayı Paylaş"):
-        st.code("https://odev-matik.streamlit.app")
-
-    # Admin Reset Butonu (Geliştirici İçin)
     if st.checkbox("Admin Modu"):
-        if st.button("Çerezleri Sıfırla"):
+        if st.button("Misafir Hakkını Sıfırla"):
             try: cookie_manager.delete("guest_used"); st.rerun()
             except: pass
 
@@ -392,4 +383,4 @@ if st.session_state.son_cevap:
     with p_col2: st.link_button("📧 Mail At", mail_link, use_container_width=True)
 
 st.divider()
-st.caption("⚠️ **Yasal Uyarı:** Sonuçlar yapay zeka tarafından üretilmiştir ve hatalı olabilir.")
+st.caption("⚠️ **Yasal Uyarı:** Sonuçlar yapay zeka tarafından üretilmiştir ve hatalı olabilir. Lütfen kontrol ediniz.")
