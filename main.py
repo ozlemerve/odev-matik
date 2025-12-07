@@ -126,6 +126,19 @@ client = OpenAI(api_key=api_key)
 # YAN MENÜ
 # ==========================================
 with st.sidebar:
+    # --- ADMIN / TEST ARAÇLARI (SADECE SENİN İÇİN) ---
+    st.caption("🔧 Geliştirici Araçları")
+    if st.button("Çerezleri Sıfırla (Test)"):
+        try:
+            cookie_manager.delete("guest_used")
+            st.toast("Misafir hakkı sıfırlandı!", icon="✅")
+            time.sleep(1)
+            st.rerun()
+        except:
+            st.error("Çerez zaten yok.")
+    st.divider()
+    # -------------------------------------------------
+
     if st.session_state.logged_in:
         st.title(f"👤 {st.session_state.username.split('@')[0]}")
         kredi = get_credit(st.session_state.username)
@@ -133,10 +146,11 @@ with st.sidebar:
         if st.button("Çıkış Yap"):
             st.session_state.logged_in = False
             st.session_state.username = "Misafir"
-            st.session_state.son_cevap = None 
+            st.session_state.son_cevap = None
             st.rerun()
     else:
         st.title("👤 Misafir Modu")
+        # Çerez Kontrolü
         try:
             guest_cookie = cookie_manager.get("guest_used")
         except:
@@ -192,13 +206,16 @@ else:
     st.markdown("<p>Ödev asistanın cebinde!</p>", unsafe_allow_html=True)
 st.write("")
 
-# MİSAFİR KİLİDİ
-kilitli = False
-if not st.session_state.logged_in and guest_cookie:
-    kilitli = True
-    st.warning("⚠️ Misafir hakkını kullandın! Yeni soru için lütfen soldan **Ücretsiz Kayıt Ol**.")
+# --- ÇEREZ KONTROLÜ (GUEST LOCK) ---
+guest_locked = False
+if not st.session_state.logged_in:
+    try:
+        if cookie_manager.get("guest_used"):
+            guest_locked = True
+    except:
+        pass
 
-# --- SONUÇ GÖSTERİMİ (Cevap kaybolmasın diye en üstte) ---
+# --- SONUÇ GÖSTERİMİ (EN ÜSTTE) ---
 if st.session_state.son_cevap:
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{st.session_state.son_cevap}</div>""", unsafe_allow_html=True)
     
@@ -212,8 +229,13 @@ if st.session_state.son_cevap:
     with p_col2: st.link_button("📧 Mail At", mail_link, use_container_width=True)
     st.divider()
 
-# --- YENİ SORU ALANI ---
-if not kilitli:
+# --- YENİ SORU ALANI (KİLİTLİ DEĞİLSE GÖSTER) ---
+if guest_locked and not st.session_state.son_cevap: # Cevap yoksa ve kilitliyse uyar
+    st.warning("⚠️ Misafir hakkını kullandın! Yeni soru için lütfen soldan **Ücretsiz Kayıt Ol**.")
+elif guest_locked and st.session_state.son_cevap: # Cevap varsa ama kilitliyse butonu gizle
+    st.info("🔒 Misafir hakkı bitti. Yeni soru için kayıt olmalısın.")
+else:
+    # --- MENÜ BUTONLARI ---
     col1, col2, col3 = st.columns(3)
     with col1:
         if st.button("📁 Galeri", use_container_width=True): st.session_state.aktif_mod = "Galeri"
@@ -252,8 +274,9 @@ if not kilitli:
             submit_soru = st.form_submit_button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True)
             if submit_soru and metin_sorusu: form_tetiklendi = True
 
-    # --- ÇÖZÜM MOTORU ---
+    # --- ÇÖZÜM İŞLEMİ ---
     if form_tetiklendi:
+        # Önce krediyi düşür (Üye ise)
         if st.session_state.logged_in:
             kredi = get_credit(st.session_state.username)
             if kredi <= 0:
@@ -262,38 +285,34 @@ if not kilitli:
             deduct_credit(st.session_state.username)
             st.toast("1 Hak düştü!", icon="🎫")
         else:
-            try:
-                cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
-                st.toast("Misafir hakkın kullanıldı!", icon="🎁")
-            except:
-                pass
+            st.toast("Misafir hakkı kullanılıyor...", icon="🎁")
 
         with st.spinner(random.choice(["Hoca bakıyor...", "Çözülüyor..."])):
             try:
                 ana_prompt = """GÖREV: Soruyu öğrenci gibi çöz. Adım adım git. LaTeX kullanma. Samimi ol."""
 
-                # KODLARI BURADA DÜZELTTİK: ALT ALTA YAZARAK HATAYI ÖNLEDİK
                 if gorsel_veri:
                     secilen_model = "gpt-4o"
                     base64_image = base64.b64encode(gorsel_veri).decode('utf-8')
-                    messages = [
-                        {"role": "system", "content": ana_prompt},
-                        {"role": "user", "content": [
-                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                        ]}
-                    ]
+                    messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}]}]
                 elif metin_sorusu:
                     secilen_model = "gpt-4o-mini"
-                    messages = [
-                        {"role": "system", "content": ana_prompt},
-                        {"role": "user", "content": f"Soru: {metin_sorusu}"}
-                    ]
+                    messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": f"Soru: {metin_sorusu}"}]
 
                 response = client.chat.completions.create(model=secilen_model, messages=messages, max_tokens=1000)
                 cevap = response.choices[0].message.content
                 
-                # CEVABI HAFIZAYA AL VE YENİLE
+                # 1. CEVABI KAYDET
                 st.session_state.son_cevap = cevap
+                
+                # 2. EĞER MİSAFİRSE, DAMGAYI ŞİMDİ BAS (Cevap hafızaya alındıktan sonra)
+                if not st.session_state.logged_in:
+                    try:
+                        cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
+                    except:
+                        pass
+                
+                # 3. SAYFAYI YENİLE (Cevap ve Kilit aynı anda devreye girsin)
                 st.rerun()
 
             except Exception as e:
