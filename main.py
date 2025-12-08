@@ -23,19 +23,33 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v44")
+cookie_manager = stx.CookieManager(key="auth_mgr_v45")
 
 # --- MÜFREDAT VERİTABANI ---
 MUFREDAT = {
     "5. Sınıf (Maarif)": {"Matematik": ["Doğal Sayılar", "Kesirler", "Ondalık Gösterim", "Yüzdeler", "Geometrik Cisimler"], "Fen": ["Güneş", "Canlılar"]},
-    "6. Sınıf (Maarif)": {"Matematik": ["Doğal Sayılar", "Çarpanlar", "Kümeler"], "Fen": ["Güneş Sistemi", "Vücudumuz"]},
-    "7. Sınıf": {"Matematik": ["Tam Sayılar", "Rasyonel Sayılar"], "Fen": ["Uzay", "Hücre"]},
+    "6. Sınıf (Maarif)": {"Matematik": ["Doğal Sayılar", "Çarpanlar", "Kümeler", "Tam Sayılar", "Kesirler", "Ondalık", "Oran", "Cebir", "Veri", "Açılar"], "Fen": ["Güneş Sistemi", "Vücudumuz"]},
+    "7. Sınıf": {"Matematik": ["Tam Sayılar", "Rasyonel Sayılar", "Cebirsel", "Denklem", "Oran-Orantı", "Yüzdeler", "Doğrular", "Çokgenler", "Çember"], "Fen": ["Uzay", "Hücre"]},
     "8. Sınıf (LGS)": {"Matematik": ["Çarpanlar Katlar", "Üslü İfadeler", "Kareköklü İfadeler", "Veri Analizi", "Olasılık", "Cebirsel", "Denklem"], "Fen": ["Mevsimler", "DNA"]},
     "9. Sınıf": {"Matematik": ["Mantık", "Kümeler", "Denklemler"], "Fizik": ["Madde", "Kuvvet"]},
     "10. Sınıf": {"Matematik": ["Sayma", "Fonksiyon"], "Fizik": ["Elektrik", "Dalga"]},
     "11. Sınıf": {"Matematik": ["Trigonometri", "Analitik"], "Fizik": ["Kuvvet", "Elektrik"]},
     "12. Sınıf": {"Matematik": ["Logaritma", "Türev", "İntegral"], "Fizik": ["Çembersel", "Modern Fizik"]}
 }
+
+# --- SENARYO HAVUZU (TEKRARI ÖNLEMEK İÇİN) ---
+SENARYOLAR = [
+    "Uzay istasyonundaki bir mühendislik problemi",
+    "Bir mimarın bina tasarlarken yaptığı hesaplamalar",
+    "Olimpiyat oyunlarındaki skor analizleri",
+    "Bir laboratuvar deneyindeki karışım oranları",
+    "Tarihi bir hazine haritasının şifreleri",
+    "Bir e-ticaret sitesinin kargo ve maliyet hesapları",
+    "Geri dönüşüm tesisindeki atık yönetimi",
+    "Bir çiftçinin tarla sulama planlaması",
+    "Drone yarışlarındaki mesafe ve hız hesapları",
+    "Mutfakta yapılan karmaşık bir yemek tarifi oranları"
+]
 
 # --- VERİTABANI ---
 def init_db():
@@ -285,7 +299,7 @@ with st.sidebar:
         st.rerun()
     st.divider()
 
-    # DERS NOTU
+    # DERS NOTU (MATEMATİK 15 SORU MODU)
     with st.expander("📚 Ders Notu Oluştur"):
         st.caption("Detaylı ve sembollü anlatım!")
         not_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="not_sinif")
@@ -316,10 +330,8 @@ with st.sidebar:
                 else: st.error("Hakkın bitti!")
             else: st.warning("Üye olmalısın.")
 
-    # --- TEST HAZIRLA (DÜZENLENDİ) ---
+    # --- TEST HAZIRLA (YENİ NESİL ZOR SORU) ---
     with st.expander("📝 Test Hazırla"):
-        st.caption("Adet ve zorluk seç, testi oluştur.")
-        
         q_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="q_sinif")
         q_dersler = list(MUFREDAT[q_sinif].keys()) if q_sinif in MUFREDAT else ["Matematik"]
         q_ders = st.selectbox("Ders:", q_dersler, key="q_ders")
@@ -327,35 +339,53 @@ with st.sidebar:
         q_konu = st.selectbox("Konu:", q_konular, key="q_konu")
         
         st.write("---")
-        # 1. SORU SAYISI (SLIDER)
-        q_adet = st.slider("Kaç soru olsun?", min_value=1, max_value=20, value=5)
-        
-        # 2. ZORLUK SEVİYESİ (SADE YATAY SEÇİM)
+        q_adet = st.slider("Soru Sayısı:", 1, 20, 5)
         st.write("Zorluk Seviyesi:")
         q_zorluk = st.radio("Zorluk:", ["Kolay", "Orta", "Zor"], horizontal=True, label_visibility="collapsed")
         
         st.write("")
         
-        # 3. İŞLEM BUTONU (AYRI VE NET)
         if st.button("Soruları Oluştur 🚀", use_container_width=True):
             if st.session_state.logged_in:
                 if get_credit(st.session_state.username) > 0:
                     deduct_credit(st.session_state.username); st.toast("1 Hak kullanıldı", icon="🎫")
                     with st.spinner(f"{q_adet} adet {q_zorluk} soru hazırlanıyor..."):
+                        
+                        # --- HİKAYE ODAKLI YENİ NESİL PROMPT ---
+                        senaryo = random.choice(SENARYOLAR) # Rastgele bir senaryo seç
+                        
+                        if q_zorluk == "Zor":
+                            ozel_talimat = f"""
+                            BU BİR YENİ NESİL (LGS/YKS TARZI) SINAVDIR.
+                            SENARYO KULLAN: "{senaryo}" temasını kullanarak soruları kurgula.
+                            KURALLAR:
+                            1. Asla basit işlem sorma (2+2 nedir gibi).
+                            2. Sorular HİKAYELEŞTİRİLMİŞ, MANTIK VE MUHAKEME gerektiren türde olsun.
+                            3. Öğrenci soruyu çözmek için birden fazla adımı düşünmek zorunda kalsın.
+                            4. Soruları 1., 2., 3. diye numaralandır.
+                            5. En alta detaylı çözümleri ekle.
+                            """
+                        else:
+                            ozel_talimat = f"Seviye: {q_zorluk}. Sorular kazanım odaklı olsun."
+
                         soru_prompt = f"""
                         GÖREV: {q_sinif} seviyesi {q_ders} dersi "{q_konu}" konusu.
+                        ADET: {q_adet} tane.
                         
-                        YAPILACAK:
-                        1. Tam {q_adet} adet {q_zorluk} seviyesinde SORU yaz.
-                        2. Soruları 1., 2., 3. diye numaralandır.
-                        3. Sadece işlem sorma, HİKAYELİ PROBLEMLER sor.
-                        4. Her sorunun altına 'ÇÖZÜM:' başlığıyla detaylı cevabını yaz.
-                        5. Sembolleri (√, ², π) doğrudan kullan. LaTeX KULLANMA.
+                        {ozel_talimat}
+                        
+                        NOT: Sembolleri (√, ², π) doğrudan kullan. LaTeX KULLANMA.
                         """
                         try:
-                            resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": soru_prompt}], max_tokens=2500)
+                            # Isıyı (Temperature) artırdık ki daha yaratıcı olsun
+                            resp = client.chat.completions.create(
+                                model="gpt-4o-mini", 
+                                messages=[{"role": "user", "content": soru_prompt}], 
+                                max_tokens=2500,
+                                temperature=0.8 
+                            )
                             st.session_state.ozel_icerik = resp.choices[0].message.content
-                            st.session_state.icerik_tipi = "Test Sorusu"
+                            st.session_state.icerik_tipi = f"{q_zorluk} Seviye Test"
                             st.rerun()
                         except: st.error("Hata")
                 else: st.error("Hakkın bitti!")
@@ -417,7 +447,8 @@ else:
                 data=pdf_bytes,
                 file_name="odevmatik_cozum.pdf",
                 mime="application/pdf",
-                use_container_width=True
+                use_container_width=True,
+                type="primary"
             )
         except: pass
 
