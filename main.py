@@ -21,7 +21,39 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_final")
+cookie_manager = stx.CookieManager(key="auth_mgr_final_v2")
+
+# --- MÜFREDAT VERİTABANI (SADECE ÖRNEK OLARAK BAZILARI EKLENDİ) ---
+MUFREDAT = {
+    "5. Sınıf": {
+        "Matematik": ["Doğal Sayılar", "Kesirler", "Ondalık Gösterim", "Yüzdeler", "Geometrik Cisimler"],
+        "Fen Bilimleri": ["Güneş, Dünya ve Ay", "Canlılar Dünyası", "Kuvvetin Ölçülmesi", "Madde ve Değişim", "Işığın Yayılması"],
+        "Türkçe": ["Sözcükte Anlam", "Cümlede Anlam", "Paragraf", "Yazım Kuralları", "Noktalama İşaretleri"],
+        "Sosyal Bilgiler": ["Birey ve Toplum", "Kültür ve Miras", "İnsanlar, Yerler ve Çevreler", "Bilim, Teknoloji ve Toplum"]
+    },
+    "6. Sınıf": {
+        "Matematik": ["Doğal Sayılarla İşlemler", "Çarpanlar ve Katlar", "Kümeler", "Tam Sayılar", "Kesirlerle İşlemler", "Ondalık Gösterim", "Oran", "Cebirsel İfadeler", "Veri Analizi", "Açılar", "Alan Ölçme", "Çember", "Geometrik Cisimler", "Sıvı Ölçme"],
+        "Fen Bilimleri": ["Güneş Sistemi ve Tutulmalar", "Vücudumuzdaki Sistemler", "Kuvvet ve Hareket", "Madde ve Isı", "Ses ve Özellikleri", "Vücudumuzdaki Sistemler ve Sağlığı", "Elektriğin İletimi"],
+        "Türkçe": ["Sözcükte Anlam", "Cümlede Anlam", "Paragraf", "İsimler", "Sıfatlar", "Zamirler", "Edat-Bağlaç-Ünlem", "Yazım ve Noktalama"],
+        "Sosyal Bilgiler": ["Biz ve Değerlerimiz", "Tarihe Yolculuk", "Yeryüzünde Yaşam", "Bilim ve Teknoloji Hayatımızda", "Üretiyorum, Tüketiyorum, Bilinçliyim", "Yönetime Katılıyorum", "Uluslararası İlişkilerimiz"]
+    },
+    "7. Sınıf": {
+        "Matematik": ["Tam Sayılarla İşlemler", "Rasyonel Sayılar", "Cebirsel İfadeler", "Eşitlik ve Denklem", "Oran ve Orantı", "Yüzdeler", "Doğrular ve Açılar", "Çokgenler", "Çember ve Daire", "Veri Analizi"],
+        "Fen Bilimleri": ["Güneş Sistemi ve Ötesi", "Hücre ve Bölünmeler", "Kuvvet ve Enerji", "Saf Madde ve Karışımlar", "Işığın Madde ile Etkileşimi", "Canlılarda Üreme, Büyüme ve Gelişme", "Elektrik Devreleri"],
+        "Türkçe": ["Fiiller (Eylem)", "Zarflar", "Ek Fiil", "Anlatım Bozuklukları", "Söz Sanatları", "Metin Türleri"],
+        "Sosyal Bilgiler": ["İletişim ve İnsan İlişkileri", "Türk Tarihinde Yolculuk", "Ülkemizde Nüfus", "Zaman İçinde Bilim", "Ekonomi ve Sosyal Hayat", "Yaşayan Demokrasi"]
+    },
+    "8. Sınıf (LGS)": {
+        "Matematik": ["Çarpanlar ve Katlar", "Üslü İfadeler", "Kareköklü İfadeler", "Veri Analizi", "Basit Olayların Olma Olasılığı", "Cebirsel İfadeler ve Özdeşlikler", "Doğrusal Denklemler", "Eşitsizlikler", "Üçgenler", "Eşlik ve Benzerlik", "Dönüşüm Geometrisi", "Geometrik Cisimler"],
+        "Fen Bilimleri": ["Mevsimler ve İklim", "DNA ve Genetik Kod", "Basınç", "Madde ve Endüstri", "Basit Makineler", "Enerji Dönüşümleri ve Çevre Bilimi", "Elektrik Yükleri ve Elektrik Enerjisi"],
+        "Türkçe": ["Fiilimsiler", "Cümlenin Ögeleri", "Fiilde Çatı", "Cümle Türleri", "Yazım ve Noktalama", "Sözel Mantık"],
+        "İnkılap Tarihi": ["Bir Kahraman Doğuyor", "Milli Uyanış", "Ya İstiklal Ya Ölüm", "Atatürkçülük ve Çağdaşlaşan Türkiye", "Demokratikleşme Çabaları", "Atatürk Dönemi Türk Dış Politikası", "Atatürk'ün Ölümü ve Sonrası"]
+    },
+    "9. Sınıf": { "Matematik": ["Mantık", "Kümeler", "Denklemler ve Eşitsizlikler", "Üçgenler", "Veri"], "Edebiyat": ["Giriş", "Hikaye", "Şiir", "Masal/Fabl", "Roman", "Tiyatro", "Biyografi/Otobiyografi"] },
+    "10. Sınıf": { "Matematik": ["Sayma ve Olasılık", "Fonksiyonlar", "Polinomlar", "İkinci Dereceden Denklemler", "Dörtgenler ve Çokgenler", "Katı Cisimler"], "Edebiyat": ["Giriş", "Hikaye", "Şiir", "Destan/Efsane", "Roman", "Tiyatro", "Anı", "Haber Metni"] },
+    "11. Sınıf": { "Matematik": ["Trigonometri", "Analitik Geometri", "Fonksiyonlarda Uygulamalar", "Denklem ve Eşitsizlik Sistemleri", "Çember ve Daire", "Uzay Geometri", "Olasılık"], "Edebiyat": ["Giriş", "Hikaye", "Şiir", "Makale", "Sohbet/Fıkra", "Roman", "Tiyatro", "Eleştiri", "Mülakat/Röportaj"] },
+    "12. Sınıf (YKS)": { "Matematik": ["Üstel ve Logaritmik Fonksiyonlar", "Diziler", "Trigonometri", "Dönüşümler", "Türev", "İntegral", "Çemberin Analitiği"], "Edebiyat": ["Giriş", "Hikaye", "Şiir", "Roman", "Tiyatro", "Deneme", "Söylev (Nutuk)"] }
+}
 
 # --- VERİTABANI ---
 def init_db():
@@ -101,18 +133,37 @@ def save_feedback(username, message):
 
 init_db()
 
-# --- PDF OLUŞTURMA ---
+# --- TÜRKÇE PDF FONKSİYONU ---
+# FPDF'in yerleşik fontları Türkçe karakterleri desteklemez.
+# Bu yüzden karakterleri en yakın Latin-1 karşılığına çeviren bir harita kullanıyoruz.
+# (Not: Profesyonel çözümde TTF font dosyası yüklenir ama GitHub'a dosya atmadan en temiz çözüm budur)
+def tr_pdf(text):
+    # Türkçe karakter haritası
+    replacements = {
+        'ğ': 'g', 'Ğ': 'G',
+        'ş': 's', 'Ş': 'S',
+        'ı': 'i', 'İ': 'I',
+        'ç': 'c', 'Ç': 'C',
+        'ö': 'o', 'Ö': 'O',
+        'ü': 'u', 'Ü': 'U'
+    }
+    for search, replace in replacements.items():
+        text = text.replace(search, replace)
+    return text
+
 def create_pdf(title, content):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", 'B', 16)
-    safe_title = title.encode('latin-1', 'replace').decode('latin-1')
-    pdf.cell(0, 10, safe_title, ln=True, align='C')
+    
+    # Başlık
+    pdf.cell(0, 10, tr_pdf(title), ln=True, align='C')
     pdf.ln(10)
+    
+    # İçerik
     pdf.set_font("Arial", size=12)
-    for line in content.split('\n'):
-        safe_line = line.encode('latin-1', 'replace').decode('latin-1')
-        pdf.multi_cell(0, 10, safe_line)
+    pdf.multi_cell(0, 10, tr_pdf(content))
+        
     return pdf.output(dest='S').encode('latin-1')
 
 # --- E-POSTA ---
@@ -158,9 +209,9 @@ if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
 if "guest_locked_session" not in st.session_state: st.session_state.guest_locked_session = False
-if "ozel_icerik" not in st.session_state: st.session_state.ozel_icerik = None # Notlar için hafıza
+if "ozel_icerik" not in st.session_state: st.session_state.ozel_icerik = None
 
-# --- ÇEREZ KONTROLÜ ---
+# --- ÇEREZ ---
 time.sleep(0.1)
 try:
     cookies = cookie_manager.get_all()
@@ -169,8 +220,7 @@ try:
         st.session_state.logged_in = True
         st.session_state.username = user_token
         st.rerun()
-except:
-    pass
+except: pass
 
 if "OPENAI_API_KEY" in st.secrets:
     api_key = st.secrets["OPENAI_API_KEY"]
@@ -184,7 +234,6 @@ client = OpenAI(api_key=api_key)
 # ÜST BAR
 # ==========================================
 col_logo, col_auth = st.columns([2, 1])
-
 with col_logo:
     st.markdown("<h1 style='margin-bottom:0;'>📝 ÖdevMatik</h1>", unsafe_allow_html=True)
     st.markdown("<p style='color:grey;'>Eğitim Koçun Cebinde!</p>", unsafe_allow_html=True)
@@ -229,25 +278,30 @@ with col_auth:
 st.divider()
 
 # ==========================================
-# YAN MENÜ (NAVİGASYONLU)
+# YAN MENÜ
 # ==========================================
 with st.sidebar:
     st.title("🗂️ Menü")
     
     # --- YENİ: ANA EKRAN TUŞU ---
     if st.button("🏠 Ana Ekran (Soru Çöz)", use_container_width=True):
-        st.session_state.ozel_icerik = None # Notları kapat
-        st.session_state.son_cevap = None # Eski cevabı temizle (isteğe bağlı)
+        st.session_state.ozel_icerik = None
+        st.session_state.son_cevap = None
         st.rerun()
     
     st.divider()
 
-    # 1. DERS NOTU OLUŞTUR (İsim Güncellendi)
+    # 1. DERS NOTU (MÜFREDATLI)
     with st.expander("📚 Ders Notu Oluştur"):
         st.caption("Sınıfına uygun özet çıkar!")
-        sinif_seviyesi = st.selectbox("Sınıf Seviyesi:", ["5. Sınıf", "6. Sınıf", "7. Sınıf", "8. Sınıf", "9. Sınıf (Lise 1)", "10. Sınıf (Lise 2)", "11. Sınıf (Lise 3)", "12. Sınıf (YKS)"], key="not_sinif")
-        ders_secimi = st.selectbox("Ders:", ["Matematik", "Fen Bilimleri", "Türkçe", "İnkılap Tarihi", "İngilizce", "Din Kültürü"], key="not_ders")
-        konu_girisi = st.text_input("Konu (Örn: Çarpanlar):", key="not_konu")
+        # Sınıf seçimi
+        not_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="not_sinif")
+        # Ders seçimi (Sınıfa göre değişebilir ama şimdilik genel)
+        dersler = list(MUFREDAT[not_sinif].keys()) if not_sinif in MUFREDAT else ["Matematik", "Fen", "Türkçe"]
+        not_ders = st.selectbox("Ders:", dersler, key="not_ders")
+        # Konu seçimi (OTOMATİK LİSTE)
+        konular = MUFREDAT[not_sinif].get(not_ders, ["Genel"])
+        not_konu = st.selectbox("Konu:", konular, key="not_konu")
         
         if st.button("Notu Hazırla 📄"):
             if st.session_state.logged_in:
@@ -255,23 +309,25 @@ with st.sidebar:
                 if kredi > 0:
                     deduct_credit(st.session_state.username)
                     st.toast("1 Hak kullanıldı", icon="🎫")
-                    with st.spinner(f"{sinif_seviyesi} seviyesinde notlar hazırlanıyor..."):
-                        not_prompt = f"""ROL: {ders_secimi} öğretmeni. HEDEF: {sinif_seviyesi}. KONU: {konu_girisi}. Özetle, formülleri ver, hap bilgi ver."""
+                    with st.spinner(f"{not_sinif} seviyesinde notlar hazırlanıyor..."):
+                        not_prompt = f"""ROL: {not_ders} öğretmeni. HEDEF: {not_sinif}. KONU: {not_konu}. Özetle, formülleri ver, hap bilgi ver."""
                         try:
                             resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": not_prompt}], max_tokens=1000)
                             st.session_state.ozel_icerik = resp.choices[0].message.content
                             st.session_state.icerik_tipi = "Ders Notu"
-                            st.rerun() # Sayfayı yenile ki ana ekranda çıksın
+                            st.rerun()
                         except: st.error("Hata")
                 else: st.error("Hakkın bitti!")
             else: st.warning("Üye olmalısın.")
 
-    # 2. TEST HAZIRLA (İsim Güncellendi)
+    # 2. TEST HAZIRLA (MÜFREDATLI)
     with st.expander("📝 Test Hazırla"):
         st.caption("Kendini test et!")
-        q_sinif = st.selectbox("Sınıf:", ["5", "6", "7", "8", "9", "10", "11", "12"], key="q_sinif")
-        q_ders = st.selectbox("Ders:", ["Matematik", "Fen", "Türkçe", "Sosyal"], key="q_ders")
-        q_konu = st.text_input("Konu:", key="q_konu")
+        q_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="q_sinif")
+        q_dersler = list(MUFREDAT[q_sinif].keys()) if q_sinif in MUFREDAT else ["Matematik", "Fen"]
+        q_ders = st.selectbox("Ders:", q_dersler, key="q_ders")
+        q_konular = MUFREDAT[q_sinif].get(q_ders, ["Genel"])
+        q_konu = st.selectbox("Konu:", q_konular, key="q_konu")
         q_zorluk = st.select_slider("Zorluk:", options=["Kolay", "Orta", "Zor"])
         q_tip = st.radio("Tip:", ["Çoktan Seçmeli", "Klasik"], horizontal=True)
         
@@ -315,7 +371,6 @@ with st.sidebar:
 # ANA EKRAN AKIŞI
 # ==========================================
 
-# MİSAFİR KİLİDİ
 guest_locked = False
 if not st.session_state.logged_in:
     if st.session_state.guest_locked_session:
@@ -328,26 +383,25 @@ if not st.session_state.logged_in:
                 st.session_state.guest_locked_session = True
         except: pass
 
-# --- ÖZEL İÇERİK GÖSTERİMİ (NOT/TEST) ---
-# Eğer özel içerik (not/test) varsa onu göster, soru sorma ekranını gizle
+# --- ÖZEL İÇERİK (PDF DÜZELTİLDİ) ---
 if st.session_state.ozel_icerik:
     st.info(f"📢 **{st.session_state.icerik_tipi} Hazır:**")
     st.markdown(f"""<div style="background-color:#fff9c4;padding:20px;border-radius:10px;color:#000080;font-size:18px;">{st.session_state.ozel_icerik}</div>""", unsafe_allow_html=True)
     
-    # PDF İNDİR
+    # PDF İNDİR (Türkçe karakterleri dönüştürerek)
     try:
         pdf_data = create_pdf(f"OdevMatik {st.session_state.icerik_tipi}", st.session_state.ozel_icerik)
         b64_pdf = base64.b64encode(pdf_data).decode('latin-1')
         href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="odevmatik_cikti.pdf"><button style="width:100%;height:50px;border-radius:10px;background-color:#FF5722;color:white;font-weight:bold;border:none;cursor:pointer;">📥 PDF Olarak İndir</button></a>'
         st.markdown(href, unsafe_allow_html=True)
-    except: st.caption("PDF karakter hatası.")
+    except Exception as e:
+        st.caption(f"PDF hatası: {e}")
     
     st.markdown("---")
     if st.button("⬅️ Geri Dön (Ana Ekran)"):
         st.session_state.ozel_icerik = None
         st.rerun()
 
-# --- NORMAL SORU ÇÖZME EKRANI (Eğer özel içerik yoksa burası çalışır) ---
 else:
     # Eski Cevap Varsa Göster
     if st.session_state.son_cevap:
@@ -360,4 +414,97 @@ else:
         p_col1, p_col2 = st.columns(2)
         with p_col1: st.link_button("💬 WhatsApp", whatsapp_link, use_container_width=True)
         with p_col2: st.link_button("📧 Mail At", mail_link, use_container_width=True)
-        st.divider
+        st.divider()
+
+    # Kilit Kontrolü
+    if guest_locked and not st.session_state.logged_in:
+        st.warning("⚠️ Misafir hakkını kullandın! Yeni soru için lütfen sağ üstten **Giriş Yap** veya **Kayıt Ol**.")
+    else:
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("📁 Galeri", use_container_width=True): 
+                st.session_state.aktif_mod = "Galeri"
+        with col2:
+            if st.button("📸 Kamera", use_container_width=True): 
+                st.session_state.aktif_mod = "Kamera"
+        with col3:
+            if st.button("⌨️ Yaz", use_container_width=True): 
+                st.session_state.aktif_mod = "Yaz"
+
+        if "aktif_mod" not in st.session_state: st.session_state.aktif_mod = "Galeri"
+
+        st.write("")
+
+        gorsel_veri = None
+        metin_sorusu = None
+        form_tetiklendi = False
+
+        if st.session_state.aktif_mod == "Galeri":
+            st.info("📂 **Galeriden Seç**")
+            yuklenen_dosya = st.file_uploader("", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
+            if yuklenen_dosya:
+                gorsel_veri = yuklenen_dosya.getvalue()
+                if st.button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True): form_tetiklendi = True
+
+        elif st.session_state.aktif_mod == "Kamera":
+            st.info("📸 **Fotoğraf Çek**")
+            cekilen_foto = st.camera_input("Kamerayı aç")
+            if cekilen_foto:
+                gorsel_veri = cekilen_foto.getvalue()
+                if st.button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True): form_tetiklendi = True
+
+        elif st.session_state.aktif_mod == "Yaz":
+            st.info("⌨️ **Soruyu Elle Yaz**")
+            with st.form(key='soru_yazma_formu'):
+                metin_sorusu = st.text_area("", height=150, placeholder="Sorunu buraya yaz...")
+                st.write("")
+                submit_soru = st.form_submit_button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True)
+                if submit_soru and metin_sorusu: form_tetiklendi = True
+
+        if form_tetiklendi:
+            can_proceed = False
+            if st.session_state.logged_in:
+                kredi = get_credit(st.session_state.username)
+                if kredi > 0:
+                    deduct_credit(st.session_state.username)
+                    st.toast("1 Hak düştü!", icon="🎫")
+                    can_proceed = True
+                else:
+                    st.error("😔 Hakkın bitti!")
+            else:
+                can_proceed = True
+
+            if can_proceed:
+                with st.spinner(random.choice(["Hoca bakıyor...", "Çözülüyor..."])):
+                    try:
+                        ana_prompt = """GÖREV: Soruyu öğrenci gibi çöz. Adım adım git. LaTeX kullanma. Samimi ol."""
+
+                        if gorsel_veri:
+                            secilen_model = "gpt-4o"
+                            base64_image = base64.b64encode(gorsel_veri).decode('utf-8')
+                            messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}]}]
+                        elif metin_sorusu:
+                            secilen_model = "gpt-4o-mini"
+                            messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": f"Soru: {metin_sorusu}"}]
+
+                        response = client.chat.completions.create(model=secilen_model, messages=messages, max_tokens=1000)
+                        cevap = response.choices[0].message.content
+                        
+                        if st.session_state.logged_in:
+                            save_history(st.session_state.username, "Soru", cevap)
+                        
+                        st.session_state.son_cevap = cevap
+                        
+                        if not st.session_state.logged_in:
+                            st.session_state.guest_locked_session = True
+                            try:
+                                cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
+                            except: pass
+                        
+                        st.rerun()
+
+                    except Exception as e:
+                        st.error(f"Hata: {e}")
+
+st.divider()
+st.caption("⚠️ **Yasal Uyarı:** Sonuçlar yapay zeka tarafından üretilmiştir ve hatalı olabilir.")
