@@ -23,9 +23,9 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v35")
+cookie_manager = stx.CookieManager(key="auth_mgr_v36")
 
-# --- MÜFREDAT (GÜNCEL) ---
+# --- MÜFREDAT VERİTABANI ---
 MUFREDAT = {
     "5. Sınıf (Maarif)": {
         "Matematik": ["Doğal Sayılar", "Kesirler", "Ondalık Gösterim", "Yüzdeler", "Geometrik Cisimler"],
@@ -141,24 +141,42 @@ def save_feedback(username, message):
 
 init_db()
 
-# --- FONT YÖNETİCİSİ ---
+# --- FONT YÖNETİCİSİ (Matematik Sembolleri İçin) ---
 def download_font():
+    # DejaVuSans fontunu indir (Matematik karakterlerini destekler)
     font_url = "https://github.com/realsung/whiteboard/raw/master/src/fonts/DejaVuSans.ttf"
     if not os.path.exists("DejaVuSans.ttf"):
-        response = requests.get(font_url)
-        with open("DejaVuSans.ttf", "wb") as f:
-            f.write(response.content)
+        try:
+            response = requests.get(font_url)
+            with open("DejaVuSans.ttf", "wb") as f:
+                f.write(response.content)
+        except:
+            pass
 
 def create_pdf_with_math(title, content):
     download_font()
     pdf = FPDF()
     pdf.add_page()
-    pdf.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
-    pdf.set_font('DejaVu', '', 14)
+    
+    # Font varsa onu kullan, yoksa standart
+    if os.path.exists("DejaVuSans.ttf"):
+        pdf.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
+        pdf.set_font('DejaVu', '', 14)
+    else:
+        pdf.set_font("Arial", 'B', 14)
+    
+    # Başlık
     pdf.cell(0, 10, title, ln=True, align='C')
     pdf.ln(10)
-    pdf.set_font('DejaVu', '', 11)
+    
+    # İçerik Fontu
+    if os.path.exists("DejaVuSans.ttf"):
+        pdf.set_font('DejaVu', '', 11)
+    else:
+        pdf.set_font("Arial", size=11)
+        
     pdf.multi_cell(0, 7, content)
+    
     return pdf.output(dest='S').encode('latin-1')
 
 # --- E-POSTA ---
@@ -167,13 +185,15 @@ def send_verification_email(to_email, code):
         sender_email = st.secrets["EMAIL_ADDRESS"]
         sender_password = st.secrets["EMAIL_PASSWORD"]
     except: return False
-    subject = "ÖdevMatik Kod"
-    body = f"Kodun: {code}"
+    
+    subject = "ÖdevMatik Doğrulama Kodu"
+    body = f"Merhaba,\n\nKodunuz: {code}\n\nÖdevMatik Ekibi"
     msg = MIMEMultipart()
-    msg['From'] = f"ÖdevMatik <{sender_email}>"
+    msg['From'] = f"ÖdevMatik Güvenlik <{sender_email}>"
     msg['To'] = to_email
     msg['Subject'] = subject
     msg.attach(MIMEText(body, 'plain'))
+
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
@@ -201,8 +221,8 @@ if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
-if "guest_locked_session" not in st.session_state: st.session_state.guest_locked_session = False
 if "ozel_icerik" not in st.session_state: st.session_state.ozel_icerik = None
+if "icerik_tipi" not in st.session_state: st.session_state.icerik_tipi = ""
 
 time.sleep(0.1)
 try:
@@ -280,7 +300,7 @@ with st.sidebar:
         st.rerun()
     st.divider()
 
-    # 1. DERS NOTU (ÖZEL AYAR: MATEMATİK 15 SORU)
+    # 1. DERS NOTU (MATEMATİK 15 SORU MODU)
     with st.expander("📚 Ders Notu Oluştur"):
         st.caption("Detaylı ve sembollü anlatım!")
         not_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="not_sinif")
@@ -297,34 +317,28 @@ with st.sidebar:
                     st.toast("1 Hak kullanıldı", icon="🎫")
                     with st.spinner("Hazırlanıyor..."):
                         
-                        # --- ÖZEL MATEMATİK PROMPTU ---
+                        # ÖZEL MATEMATİK PROMPTU
                         if not_ders == "Matematik":
                             not_prompt = f"""
                             SEN BİR MATEMATİK DERS KİTABI YAZARISIN.
                             DERS: Matematik. SINIF: {not_sinif}. KONU: {not_konu}.
-                            
                             GÖREVLER:
                             1. Konuyu BÜTÜN DETAYLARIYLA, ispatlarıyla anlat.
                             2. "Tanım", "Kural", "Uyarı" başlıkları kullan.
-                            3. İçerik EN AZ 1100 KELİME olacak. Kısa kesme.
+                            3. İçerik EN AZ 1100 KELİME olacak.
                             4. EN AZ 15 ADET "Çözümlü Örnek" ekle. Örnekler kolaydan zora gitsin. Çözümleri adım adım göster.
-                            5. Matematik sembollerini (√, ², π, ∫) DOĞRUDAN kullan. LaTeX kullanma.
+                            5. Matematik sembollerini (√, ², π, ∫) DOĞRUDAN kullan.
                             """
                         else:
-                            # Diğer dersler için standart ama dolu prompt
                             not_prompt = f"""
-                            SEN BİR DERS KİTABI YAZARISIN.
-                            DERS: {not_ders}. SINIF: {not_sinif}. KONU: {not_konu}.
-                            
+                            SEN BİR DERS KİTABI YAZARISIN. DERS: {not_ders}. SINIF: {not_sinif}. KONU: {not_konu}.
                             GÖREVLER:
-                            1. Konuyu akademik ve detaylı anlat. Sohbet dili kullanma.
+                            1. Konuyu akademik ve detaylı anlat.
                             2. En az 800 kelime olsun.
                             3. En az 3 tane çözümlü/açıklamalı örnek ver.
-                            4. Önemli yerleri vurgula.
                             """
                             
                         try:
-                            # Matematik için limiti artırdık (3000 Token)
                             max_tok = 3000 if not_ders == "Matematik" else 2000
                             resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": not_prompt}], max_tokens=max_tok)
                             st.session_state.ozel_icerik = resp.choices[0].message.content
@@ -389,32 +403,39 @@ with st.sidebar:
 
 guest_locked = False
 if not st.session_state.logged_in:
-    if st.session_state.guest_locked_session: guest_locked = True
-    else:
-        try:
-            cookies = cookie_manager.get_all()
-            if "guest_used" in cookies: guest_locked = True; st.session_state.guest_locked_session = True
-        except: pass
+    try:
+        cookies = cookie_manager.get_all()
+        if "guest_used" in cookies: guest_locked = True
+    except: pass
 
-# --- ÖZEL İÇERİK ---
+# --- 1. ÖZEL İÇERİK VARSA (Ders Notu / Test) ---
 if st.session_state.ozel_icerik:
     st.info(f"📢 **{st.session_state.icerik_tipi} Hazır:**")
     st.markdown(f"""<div style="background-color:#fff9c4;padding:20px;border-radius:10px;color:#000080;font-size:18px;">{st.session_state.ozel_icerik}</div>""", unsafe_allow_html=True)
     
     try:
-        pdf_data = create_pdf_with_math(f"OdevMatik {st.session_state.icerik_tipi}", st.session_state.ozel_icerik)
-        b64_pdf = base64.b64encode(pdf_data).decode('latin-1')
-        href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="odevmatik_not.pdf"><button style="width:100%;height:50px;border-radius:10px;background-color:#FF5722;color:white;font-weight:bold;border:none;cursor:pointer;">📥 PDF Olarak İndir (Sembollü)</button></a>'
+        pdf_bytes = create_pdf_with_math(f"OdevMatik {st.session_state.icerik_tipi}", st.session_state.ozel_icerik)
+        b64_pdf = base64.b64encode(pdf_bytes).decode('latin-1')
+        href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="odevmatik_cikti.pdf" style="text-decoration:none;"><button style="width:100%;height:50px;border-radius:10px;background-color:#FF5722;color:white;font-weight:bold;border:none;cursor:pointer;margin-top:10px;">📥 PDF Olarak İndir</button></a>'
         st.markdown(href, unsafe_allow_html=True)
     except Exception as e: st.caption(f"PDF Hatası: {e}")
     
     st.markdown("---")
     if st.button("⬅️ Geri Dön (Ana Ekran)"): st.session_state.ozel_icerik = None; st.rerun()
 
+# --- 2. NORMAL SORU ÇÖZÜMÜ ---
 else:
-    # SONUÇ GÖSTERİMİ
     if st.session_state.son_cevap:
         st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{st.session_state.son_cevap}</div>""", unsafe_allow_html=True)
+        
+        # CEVAP İÇİN PDF BUTONU (BURASI EKLENDİ)
+        try:
+            pdf_bytes = create_pdf_with_math("OdevMatik Cozum", st.session_state.son_cevap)
+            b64_pdf = base64.b64encode(pdf_bytes).decode('latin-1')
+            href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="odevmatik_cozum.pdf" style="text-decoration:none;"><button style="width:100%;height:50px;border-radius:10px;background-color:#FF5722;color:white;font-weight:bold;border:none;cursor:pointer;margin-top:10px;">📥 PDF Olarak İndir</button></a>'
+            st.markdown(href, unsafe_allow_html=True)
+        except Exception as e: st.caption(f"PDF Hatası: {e}")
+
         st.write(""); st.markdown("### 📤 Paylaş")
         paylasim_metni = urllib.parse.quote(f"ÖdevMatik Çözümü:\n\n{st.session_state.son_cevap}\n\n--- ÖdevMatik ile çözüldü.")
         whatsapp_link = f"https://api.whatsapp.com/send?text={paylasim_metni}"
