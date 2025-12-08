@@ -22,39 +22,19 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- ÇEREZ YÖNETİCİSİ (HATA VERMEYEN VERSİYON) ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v38")
+# --- ÇEREZ YÖNETİCİSİ ---
+cookie_manager = stx.CookieManager(key="auth_mgr_v39")
 
 # --- MÜFREDAT VERİTABANI ---
 MUFREDAT = {
-    "5. Sınıf (Maarif)": {
-        "Matematik": ["Doğal Sayılar", "Kesirler", "Ondalık Gösterim", "Yüzdeler", "Geometrik Cisimler"],
-        "Fen": ["Güneş, Dünya, Ay", "Canlılar", "Kuvvet", "Madde", "Işık", "Elektrik"],
-        "Türkçe": ["Okuma Kültürü", "Erdemler", "Bilim", "Milli Kültür"],
-        "Sosyal": ["Birey ve Toplum", "Kültür", "Yeryüzü", "Bilim", "Ekonomi"]
-    },
-    "6. Sınıf (Maarif)": {
-        "Matematik": ["Doğal Sayılar", "Çarpanlar", "Kümeler", "Tam Sayılar", "Kesirler", "Ondalık", "Oran", "Cebir", "Veri", "Açılar"],
-        "Fen": ["Güneş Sistemi", "Vücudumuz", "Kuvvet", "Madde", "Ses", "Elektrik"],
-        "Türkçe": ["Duygular", "Doğa", "Milli Mücadele", "Bilim", "Sanat"],
-        "Sosyal": ["Değerlerimiz", "Tarih", "Coğrafya", "Bilim", "Ekonomi", "Yönetim"]
-    },
-    "7. Sınıf": {
-        "Matematik": ["Tam Sayılar", "Rasyonel Sayılar", "Cebirsel", "Denklem", "Oran-Orantı", "Yüzdeler", "Doğrular", "Çokgenler", "Çember"],
-        "Fen": ["Uzay", "Hücre", "Kuvvet-Enerji", "Madde", "Işık", "Canlılar", "Elektrik"],
-        "Türkçe": ["Erdemler", "Milli Kültür", "Kişisel Gelişim", "Sanat"],
-        "Sosyal": ["İletişim", "Tarih", "Nüfus", "Bilim", "Ekonomi"]
-    },
-    "8. Sınıf (LGS)": {
-        "Matematik": ["Çarpanlar Katlar", "Üslü Sayılar", "Kareköklü İfadeler", "Veri Analizi", "Olasılık", "Cebirsel", "Denklem", "Eşitsizlik", "Üçgenler", "Dönüşüm", "Cisimler"],
-        "Fen": ["Mevsimler", "DNA", "Basınç", "Madde", "Basit Makineler", "Enerji", "Elektrik"],
-        "Türkçe": ["Fiilimsiler", "Cümle Ögeleri", "Çatı", "Cümle Türleri", "Yazım", "Mantık"],
-        "İnkılap": ["Bir Kahraman Doğuyor", "Milli Uyanış", "Ya İstiklal", "Atatürkçülük", "Demokratikleşme", "Dış Politika"]
-    },
-    "9. Sınıf (Maarif)": { "Matematik": ["Mantık", "Kümeler", "Denklemler", "Üçgenler", "Veri"], "Fizik": ["Fizik Bilimi", "Madde", "Hareket", "Enerji", "Isı", "Elektrostatik"], "Kimya": ["Kimya Bilimi", "Atom", "Etkileşimler", "Hal Değişimi"], "Biyoloji": ["Canlılık", "Hücre", "Canlılar Dünyası"] },
-    "10. Sınıf (Maarif)": { "Matematik": ["Sayma Olasılık", "Fonksiyon", "Polinom", "Denklem", "Dörtgen", "Katı Cisim"], "Fizik": ["Elektrik", "Basınç", "Dalgalar", "Optik"], "Kimya": ["Kanunlar", "Karışımlar", "Asit-Baz"], "Biyoloji": ["Bölünmeler", "Kalıtım", "Ekosistem"] },
-    "11. Sınıf": { "Matematik": ["Trigonometri", "Analitik", "Fonksiyon", "Denklem Sis.", "Çember", "Olasılık"], "Fizik": ["Kuvvet", "Elektrik"], "Kimya": ["Atom", "Gazlar", "Çözeltiler", "Enerji", "Hız", "Denge"], "Biyoloji": ["Sistemler", "Komünite"] },
-    "12. Sınıf": { "Matematik": ["Logaritma", "Dizi", "Trigonometri", "Dönüşüm", "Türev", "İntegral", "Çember Analitiği"], "Fizik": ["Çembersel", "Harmonik", "Dalga M.", "Atom Fiziği", "Modern Fizik"], "Kimya": ["Elektrik", "Organik"], "Biyoloji": ["Genden Proteine", "Enerji", "Bitki"] }
+    "5. Sınıf (Maarif)": {"Matematik": ["Doğal Sayılar", "Kesirler"], "Fen": ["Güneş", "Canlılar"]},
+    "6. Sınıf (Maarif)": {"Matematik": ["Doğal Sayılar", "Çarpanlar", "Kümeler"], "Fen": ["Güneş Sistemi", "Vücudumuz"]},
+    "7. Sınıf": {"Matematik": ["Tam Sayılar", "Rasyonel Sayılar"], "Fen": ["Uzay", "Hücre"]},
+    "8. Sınıf (LGS)": {"Matematik": ["Çarpanlar Katlar", "Üslü İfadeler", "Kareköklü İfadeler", "Veri Analizi", "Olasılık", "Cebirsel", "Denklem"], "Fen": ["Mevsimler", "DNA"]},
+    "9. Sınıf": {"Matematik": ["Mantık", "Kümeler", "Denklemler"], "Fizik": ["Madde", "Kuvvet"]},
+    "10. Sınıf": {"Matematik": ["Sayma", "Fonksiyon"], "Fizik": ["Elektrik", "Dalga"]},
+    "11. Sınıf": {"Matematik": ["Trigonometri", "Analitik"], "Fizik": ["Kuvvet", "Elektrik"]},
+    "12. Sınıf": {"Matematik": ["Logaritma", "Türev", "İntegral"], "Fizik": ["Çembersel", "Modern Fizik"]}
 }
 
 # --- VERİTABANI ---
@@ -74,8 +54,7 @@ def add_user(username, password):
         c.execute('INSERT INTO usersTable (username, password, credit) VALUES (?, ?, ?)', (username, password, 100))
         conn.commit()
         result = True
-    except:
-        result = False
+    except: result = False
     conn.close()
     return result
 
@@ -141,14 +120,15 @@ def save_feedback(username, message):
 
 init_db()
 
-# --- FONT YÖNETİCİSİ (MATEMATİK SEMBOLLERİ İÇİN) ---
+# --- PDF MOTORU (SEMBOL DESTEKLİ) ---
 def download_font():
-    font_url = "https://github.com/realsung/whiteboard/raw/master/src/fonts/DejaVuSans.ttf"
-    if not os.path.exists("DejaVuSans.ttf"):
+    font_path = "DejaVuSans.ttf"
+    if not os.path.exists(font_path):
+        url = "https://github.com/realsung/whiteboard/raw/master/src/fonts/DejaVuSans.ttf"
         try:
-            response = requests.get(font_url)
-            with open("DejaVuSans.ttf", "wb") as f:
-                f.write(response.content)
+            r = requests.get(url)
+            with open(font_path, "wb") as f:
+                f.write(r.content)
         except: pass
 
 def create_pdf_with_math(title, content):
@@ -156,25 +136,32 @@ def create_pdf_with_math(title, content):
     pdf = FPDF()
     pdf.add_page()
     
-    # Font varsa kullan (Matematik sembolleri için şart)
+    # Fontu yükle (Varsa DejaVu, yoksa Arial)
     if os.path.exists("DejaVuSans.ttf"):
         pdf.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
         pdf.set_font('DejaVu', '', 14)
     else:
         pdf.set_font("Arial", 'B', 14)
     
-    pdf.cell(0, 10, title, ln=True, align='C')
+    # Başlık
+    pdf.cell(0, 10, str(title), ln=True, align='C')
     pdf.ln(10)
     
+    # İçerik
     if os.path.exists("DejaVuSans.ttf"):
         pdf.set_font('DejaVu', '', 11)
     else:
         pdf.set_font("Arial", size=11)
         
-    pdf.multi_cell(0, 7, content)
+    # Unicode karakterleri basabilmek için multi_cell
+    pdf.multi_cell(0, 7, str(content))
     
-    # Binary olarak döndür (Streamlit download_button için)
-    return pdf.output(dest='S').encode('latin-1')
+    # Dosyayı geçici olarak kaydet ve okuyup geri dön (En güvenli yol)
+    pdf_output_path = "/tmp/cikti.pdf" if os.path.exists("/tmp") else "cikti.pdf"
+    pdf.output(pdf_output_path)
+    
+    with open(pdf_output_path, "rb") as f:
+        return f.read()
 
 # --- E-POSTA ---
 def send_verification_email(to_email, code):
@@ -182,8 +169,8 @@ def send_verification_email(to_email, code):
         sender_email = st.secrets["EMAIL_ADDRESS"]
         sender_password = st.secrets["EMAIL_PASSWORD"]
     except: return False
-    subject = "ÖdevMatik Doğrulama Kodu"
-    body = f"Merhaba,\n\nKodunuz: {code}\n\nÖdevMatik Ekibi"
+    subject = "ÖdevMatik Kod"
+    body = f"Kod: {code}"
     msg = MIMEMultipart()
     msg['From'] = f"ÖdevMatik <{sender_email}>"
     msg['To'] = to_email
@@ -294,9 +281,8 @@ with st.sidebar:
         st.rerun()
     st.divider()
 
-    # DERS NOTU (MATEMATİK ÖZEL AYARLI)
+    # 1. DERS NOTU (YENİLENMİŞ)
     with st.expander("📚 Ders Notu Oluştur"):
-        st.caption("Detaylı ve sembollü anlatım!")
         not_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="not_sinif")
         dersler = list(MUFREDAT[not_sinif].keys()) if not_sinif in MUFREDAT else ["Matematik"]
         not_ders = st.selectbox("Ders:", dersler, key="not_ders")
@@ -309,9 +295,12 @@ with st.sidebar:
                     deduct_credit(st.session_state.username); st.toast("1 Hak kullanıldı", icon="🎫")
                     with st.spinner("Hazırlanıyor..."):
                         if not_ders == "Matematik":
-                            not_prompt = f"""SEN BİR MATEMATİK DERS KİTABI YAZARISIN. SINIF: {not_sinif}. KONU: {not_konu}. DETAYLI ANLAT. EN AZ 15 ÖRNEK ÇÖZ. SEMBOLLERİ (√, ², π) KULLAN."""
+                            not_prompt = f"""SEN BİR MATEMATİK DERS KİTABI YAZARISIN. SINIF: {not_sinif}. KONU: {not_konu}.
+                            GÖREV: Detaylı anlat. EN AZ 1100 KELİME. EN AZ 15 ÖRNEK ÇÖZ.
+                            Sembolleri (√, ², π, ∫) DOĞRUDAN kullan. Asla LaTeX kodu kullanma."""
                         else:
-                            not_prompt = f"""SEN BİR DERS KİTABI YAZARISIN. DERS: {not_ders}. SINIF: {not_sinif}. KONU: {not_konu}. DETAYLI ANLAT. 3 ÖRNEK VER."""
+                            not_prompt = f"""SEN BİR DERS KİTABI YAZARISIN. DERS: {not_ders}. SINIF: {not_sinif}. KONU: {not_konu}.
+                            GÖREV: Detaylı anlat. 3 ÖRNEK VER."""
                         try:
                             max_tok = 3000 if not_ders == "Matematik" else 2000
                             resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": not_prompt}], max_tokens=max_tok)
@@ -322,7 +311,7 @@ with st.sidebar:
                 else: st.error("Hakkın bitti!")
             else: st.warning("Üye olmalısın.")
 
-    # TEST HAZIRLA
+    # 2. TEST HAZIRLA
     with st.expander("📝 Test Hazırla"):
         q_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="q_sinif")
         q_dersler = list(MUFREDAT[q_sinif].keys()) if q_sinif in MUFREDAT else ["Matematik"]
@@ -335,7 +324,7 @@ with st.sidebar:
                 if get_credit(st.session_state.username) > 0:
                     deduct_credit(st.session_state.username); st.toast("1 Hak kullanıldı", icon="🎫")
                     with st.spinner("Yazılıyor..."):
-                        soru_prompt = f"""GÖREV: {q_sinif} {q_ders} "{q_konu}" {q_zorluk} soru yaz. SEMBOLLERİ (√, ², π) KULLAN. Cevabı altına 'ÇÖZÜM:' diye ekle."""
+                        soru_prompt = f"""GÖREV: {q_sinif} {q_ders} "{q_konu}" {q_zorluk} soru yaz. SEMBOLLERİ (√, ², π) DOĞRUDAN KULLAN. Cevabı altına 'ÇÖZÜM:' diye ekle."""
                         try:
                             resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": soru_prompt}], max_tokens=1000)
                             st.session_state.ozel_icerik = resp.choices[0].message.content
@@ -369,16 +358,16 @@ if not st.session_state.logged_in:
         if "guest_used" in cookies: guest_locked = True
     except: pass
 
-# --- 1. ÖZEL İÇERİK (PDF BUTONU VAR) ---
+# --- 1. ÖZEL İÇERİK VARSA (PDF BUTONU DÜZELTİLDİ) ---
 if st.session_state.ozel_icerik:
     st.info(f"📢 **{st.session_state.icerik_tipi} Hazır:**")
     st.markdown(f"""<div style="background-color:#fff9c4;padding:20px;border-radius:10px;color:#000080;font-size:18px;">{st.session_state.ozel_icerik}</div>""", unsafe_allow_html=True)
     
-    # PDF İNDİR BUTONU (BURADA)
+    # PDF OLUŞTUR VE İNDİR BUTONU
     try:
         pdf_bytes = create_pdf_with_math(f"OdevMatik {st.session_state.icerik_tipi}", st.session_state.ozel_icerik)
         st.download_button(
-            label="📥 PDF Olarak İndir (Sembollü)",
+            label="📥 PDF Olarak İndir",
             data=pdf_bytes,
             file_name="odevmatik_icerik.pdf",
             mime="application/pdf",
@@ -395,7 +384,7 @@ else:
     if st.session_state.son_cevap:
         st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{st.session_state.son_cevap}</div>""", unsafe_allow_html=True)
         
-        # PDF İNDİR BUTONU (BURADA DA VAR)
+        # PDF İNDİR BUTONU (CEVAP İÇİN)
         try:
             pdf_bytes = create_pdf_with_math("OdevMatik Cozum", st.session_state.son_cevap)
             st.download_button(
@@ -403,8 +392,7 @@ else:
                 data=pdf_bytes,
                 file_name="odevmatik_cozum.pdf",
                 mime="application/pdf",
-                use_container_width=True,
-                type="primary"
+                use_container_width=True
             )
         except Exception as e: st.caption(f"PDF Hatası: {e}")
 
