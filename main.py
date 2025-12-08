@@ -21,38 +21,50 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_final_v2")
+cookie_manager = stx.CookieManager(key="auth_mgr_v30")
 
-# --- MÜFREDAT VERİTABANI (SADECE ÖRNEK OLARAK BAZILARI EKLENDİ) ---
+# --- GÜNCEL MÜFREDAT (MAARİF MODELİ EKLENDİ) ---
 MUFREDAT = {
-    "5. Sınıf": {
-        "Matematik": ["Doğal Sayılar", "Kesirler", "Ondalık Gösterim", "Yüzdeler", "Geometrik Cisimler"],
-        "Fen Bilimleri": ["Güneş, Dünya ve Ay", "Canlılar Dünyası", "Kuvvetin Ölçülmesi", "Madde ve Değişim", "Işığın Yayılması"],
-        "Türkçe": ["Sözcükte Anlam", "Cümlede Anlam", "Paragraf", "Yazım Kuralları", "Noktalama İşaretleri"],
-        "Sosyal Bilgiler": ["Birey ve Toplum", "Kültür ve Miras", "İnsanlar, Yerler ve Çevreler", "Bilim, Teknoloji ve Toplum"]
+    "5. Sınıf (Maarif Modeli)": {
+        "Matematik": ["Doğal Sayılar ve İşlemler", "Kesirler ve Ondalık Gösterim", "Geometrik Şekiller", "Veri Toplama ve Değerlendirme", "Uzunluk ve Zaman Ölçme"],
+        "Fen Bilimleri": ["Gökyüzündeki Komşularımız", "Canlılar Dünyasına Yolculuk", "Kuvvetin Etkileri", "Maddenin Değişimi", "Işığın Yayılması", "İnsan ve Çevre"],
+        "Türkçe": ["Erdemler", "Milli Kültür", "Bilim ve Teknoloji", "Birey ve Toplum", "Okuma Kültürü"],
+        "Sosyal Bilgiler": ["Birey ve Toplum", "Kültür ve Miras", "İnsanlar, Yerler ve Çevreler", "Üretim, Dağıtım ve Tüketim"]
     },
     "6. Sınıf": {
-        "Matematik": ["Doğal Sayılarla İşlemler", "Çarpanlar ve Katlar", "Kümeler", "Tam Sayılar", "Kesirlerle İşlemler", "Ondalık Gösterim", "Oran", "Cebirsel İfadeler", "Veri Analizi", "Açılar", "Alan Ölçme", "Çember", "Geometrik Cisimler", "Sıvı Ölçme"],
-        "Fen Bilimleri": ["Güneş Sistemi ve Tutulmalar", "Vücudumuzdaki Sistemler", "Kuvvet ve Hareket", "Madde ve Isı", "Ses ve Özellikleri", "Vücudumuzdaki Sistemler ve Sağlığı", "Elektriğin İletimi"],
-        "Türkçe": ["Sözcükte Anlam", "Cümlede Anlam", "Paragraf", "İsimler", "Sıfatlar", "Zamirler", "Edat-Bağlaç-Ünlem", "Yazım ve Noktalama"],
-        "Sosyal Bilgiler": ["Biz ve Değerlerimiz", "Tarihe Yolculuk", "Yeryüzünde Yaşam", "Bilim ve Teknoloji Hayatımızda", "Üretiyorum, Tüketiyorum, Bilinçliyim", "Yönetime Katılıyorum", "Uluslararası İlişkilerimiz"]
+        "Matematik": ["Doğal Sayılarla İşlemler", "Çarpanlar ve Katlar", "Kümeler", "Tam Sayılar", "Kesirler", "Ondalık Gösterim", "Oran", "Cebirsel İfadeler", "Veri Analizi", "Açılar", "Alan Ölçme", "Çember", "Geometrik Cisimler"],
+        "Fen Bilimleri": ["Güneş Sistemi ve Tutulmalar", "Vücudumuzdaki Sistemler", "Kuvvet ve Hareket", "Madde ve Isı", "Ses ve Özellikleri", "Denetleyici ve Düzenleyici Sistemler"],
+        "Türkçe": ["Sözcükte Anlam", "Cümlede Anlam", "Paragraf", "İsim-Sıfat-Zamir", "Yazım Kuralları"],
+        "Sosyal Bilgiler": ["Biz ve Değerlerimiz", "Tarihe Yolculuk", "Yeryüzünde Yaşam", "Bilim ve Teknoloji", "Üretiyorum, Tüketiyorum"]
     },
     "7. Sınıf": {
-        "Matematik": ["Tam Sayılarla İşlemler", "Rasyonel Sayılar", "Cebirsel İfadeler", "Eşitlik ve Denklem", "Oran ve Orantı", "Yüzdeler", "Doğrular ve Açılar", "Çokgenler", "Çember ve Daire", "Veri Analizi"],
-        "Fen Bilimleri": ["Güneş Sistemi ve Ötesi", "Hücre ve Bölünmeler", "Kuvvet ve Enerji", "Saf Madde ve Karışımlar", "Işığın Madde ile Etkileşimi", "Canlılarda Üreme, Büyüme ve Gelişme", "Elektrik Devreleri"],
-        "Türkçe": ["Fiiller (Eylem)", "Zarflar", "Ek Fiil", "Anlatım Bozuklukları", "Söz Sanatları", "Metin Türleri"],
-        "Sosyal Bilgiler": ["İletişim ve İnsan İlişkileri", "Türk Tarihinde Yolculuk", "Ülkemizde Nüfus", "Zaman İçinde Bilim", "Ekonomi ve Sosyal Hayat", "Yaşayan Demokrasi"]
+        "Matematik": ["Tam Sayılar", "Rasyonel Sayılar", "Cebirsel İfadeler", "Eşitlik ve Denklem", "Oran ve Orantı", "Yüzdeler", "Doğrular ve Açılar", "Çokgenler", "Çember ve Daire", "Veri Analizi"],
+        "Fen Bilimleri": ["Güneş Sistemi", "Hücre ve Bölünmeler", "Kuvvet ve Enerji", "Saf Madde ve Karışımlar", "Işığın Madde ile Etkileşimi", "Canlılarda Üreme"],
+        "Türkçe": ["Fiiller", "Zarflar", "Ek Fiil", "Anlatım Bozuklukları", "Metin Türleri"],
+        "Sosyal Bilgiler": ["İletişim ve İnsan", "Türk Tarihinde Yolculuk", "Ülkemizde Nüfus", "Zaman İçinde Bilim", "Ekonomi ve Sosyal Hayat"]
     },
     "8. Sınıf (LGS)": {
-        "Matematik": ["Çarpanlar ve Katlar", "Üslü İfadeler", "Kareköklü İfadeler", "Veri Analizi", "Basit Olayların Olma Olasılığı", "Cebirsel İfadeler ve Özdeşlikler", "Doğrusal Denklemler", "Eşitsizlikler", "Üçgenler", "Eşlik ve Benzerlik", "Dönüşüm Geometrisi", "Geometrik Cisimler"],
-        "Fen Bilimleri": ["Mevsimler ve İklim", "DNA ve Genetik Kod", "Basınç", "Madde ve Endüstri", "Basit Makineler", "Enerji Dönüşümleri ve Çevre Bilimi", "Elektrik Yükleri ve Elektrik Enerjisi"],
+        "Matematik": ["Çarpanlar ve Katlar", "Üslü İfadeler", "Kareköklü İfadeler", "Veri Analizi", "Olasılık", "Cebirsel İfadeler", "Doğrusal Denklemler", "Eşitsizlikler", "Üçgenler", "Eşlik ve Benzerlik", "Dönüşüm Geometrisi", "Geometrik Cisimler"],
+        "Fen Bilimleri": ["Mevsimler ve İklim", "DNA ve Genetik Kod", "Basınç", "Madde ve Endüstri", "Basit Makineler", "Enerji Dönüşümleri", "Elektrik Yükleri"],
         "Türkçe": ["Fiilimsiler", "Cümlenin Ögeleri", "Fiilde Çatı", "Cümle Türleri", "Yazım ve Noktalama", "Sözel Mantık"],
-        "İnkılap Tarihi": ["Bir Kahraman Doğuyor", "Milli Uyanış", "Ya İstiklal Ya Ölüm", "Atatürkçülük ve Çağdaşlaşan Türkiye", "Demokratikleşme Çabaları", "Atatürk Dönemi Türk Dış Politikası", "Atatürk'ün Ölümü ve Sonrası"]
+        "İnkılap Tarihi": ["Bir Kahraman Doğuyor", "Milli Uyanış", "Ya İstiklal Ya Ölüm", "Atatürkçülük", "Demokratikleşme Çabaları", "Dış Politika"]
     },
-    "9. Sınıf": { "Matematik": ["Mantık", "Kümeler", "Denklemler ve Eşitsizlikler", "Üçgenler", "Veri"], "Edebiyat": ["Giriş", "Hikaye", "Şiir", "Masal/Fabl", "Roman", "Tiyatro", "Biyografi/Otobiyografi"] },
-    "10. Sınıf": { "Matematik": ["Sayma ve Olasılık", "Fonksiyonlar", "Polinomlar", "İkinci Dereceden Denklemler", "Dörtgenler ve Çokgenler", "Katı Cisimler"], "Edebiyat": ["Giriş", "Hikaye", "Şiir", "Destan/Efsane", "Roman", "Tiyatro", "Anı", "Haber Metni"] },
-    "11. Sınıf": { "Matematik": ["Trigonometri", "Analitik Geometri", "Fonksiyonlarda Uygulamalar", "Denklem ve Eşitsizlik Sistemleri", "Çember ve Daire", "Uzay Geometri", "Olasılık"], "Edebiyat": ["Giriş", "Hikaye", "Şiir", "Makale", "Sohbet/Fıkra", "Roman", "Tiyatro", "Eleştiri", "Mülakat/Röportaj"] },
-    "12. Sınıf (YKS)": { "Matematik": ["Üstel ve Logaritmik Fonksiyonlar", "Diziler", "Trigonometri", "Dönüşümler", "Türev", "İntegral", "Çemberin Analitiği"], "Edebiyat": ["Giriş", "Hikaye", "Şiir", "Roman", "Tiyatro", "Deneme", "Söylev (Nutuk)"] }
+    "9. Sınıf (Maarif Modeli)": {
+        "Matematik": ["Sayılar ve Nicelikler", "Denklemler ve Eşitsizlikler", "Fonksiyonlar", "Üçgenler", "Veri"],
+        "Edebiyat": ["Giriş", "Hikaye", "Şiir", "Masal/Fabl", "Roman", "Tiyatro", "Biyografi"]
+    },
+    "10. Sınıf": {
+        "Matematik": ["Sayma ve Olasılık", "Fonksiyonlar", "Polinomlar", "İkinci Dereceden Denklemler", "Dörtgenler", "Katı Cisimler"],
+        "Edebiyat": ["Giriş", "Hikaye", "Şiir", "Destan/Efsane", "Roman", "Tiyatro", "Anı"]
+    },
+    "11. Sınıf": {
+        "Matematik": ["Trigonometri", "Analitik Geometri", "Fonksiyon Uygulamaları", "Denklem Sistemleri", "Çember ve Daire", "Olasılık"],
+        "Edebiyat": ["Giriş", "Hikaye", "Şiir", "Makale", "Sohbet", "Roman", "Tiyatro", "Eleştiri"]
+    },
+    "12. Sınıf (YKS)": {
+        "Matematik": ["Logaritma", "Diziler", "Trigonometri", "Dönüşümler", "Türev", "İntegral", "Çemberin Analitiği"],
+        "Edebiyat": ["Giriş", "Hikaye", "Şiir", "Roman", "Tiyatro", "Deneme", "Nutuk"]
+    }
 }
 
 # --- VERİTABANI ---
@@ -133,23 +145,21 @@ def save_feedback(username, message):
 
 init_db()
 
-# --- TÜRKÇE PDF FONKSİYONU ---
-# FPDF'in yerleşik fontları Türkçe karakterleri desteklemez.
-# Bu yüzden karakterleri en yakın Latin-1 karşılığına çeviren bir harita kullanıyoruz.
-# (Not: Profesyonel çözümde TTF font dosyası yüklenir ama GitHub'a dosya atmadan en temiz çözüm budur)
-def tr_pdf(text):
-    # Türkçe karakter haritası
+# --- PDF TEMİZLEYİCİ VE OLUŞTURUCU ---
+def clean_text_for_pdf(text):
+    # Türkçe karakterler ve Matematik sembolleri için harita
     replacements = {
-        'ğ': 'g', 'Ğ': 'G',
-        'ş': 's', 'Ş': 'S',
-        'ı': 'i', 'İ': 'I',
-        'ç': 'c', 'Ç': 'C',
-        'ö': 'o', 'Ö': 'O',
-        'ü': 'u', 'Ü': 'U'
+        'ğ': 'g', 'Ğ': 'G', 'ş': 's', 'Ş': 'S', 'ı': 'i', 'İ': 'I', 'ç': 'c', 'Ç': 'C', 'ö': 'o', 'Ö': 'O', 'ü': 'u', 'Ü': 'U',
+        '√': 'kok', '²': '^2', '³': '^3', 'π': 'pi', '∞': 'sonsuz', '≠': 'esit degil', '≤': '<=', '≥': '>='
     }
+    # Markdown temizliği (Basitçe)
+    text = text.replace('**', '').replace('__', '').replace('###', '').replace('##', '').replace('#', '')
+    
     for search, replace in replacements.items():
         text = text.replace(search, replace)
-    return text
+    
+    # ASCII dışı karakterleri temizle (Garanti olsun diye)
+    return text.encode('latin-1', 'replace').decode('latin-1')
 
 def create_pdf(title, content):
     pdf = FPDF()
@@ -157,12 +167,14 @@ def create_pdf(title, content):
     pdf.set_font("Arial", 'B', 16)
     
     # Başlık
-    pdf.cell(0, 10, tr_pdf(title), ln=True, align='C')
+    safe_title = clean_text_for_pdf(title)
+    pdf.cell(0, 10, safe_title, ln=True, align='C')
     pdf.ln(10)
     
     # İçerik
     pdf.set_font("Arial", size=12)
-    pdf.multi_cell(0, 10, tr_pdf(content))
+    safe_content = clean_text_for_pdf(content)
+    pdf.multi_cell(0, 10, safe_content)
         
     return pdf.output(dest='S').encode('latin-1')
 
@@ -173,6 +185,7 @@ def send_verification_email(to_email, code):
         sender_password = st.secrets["EMAIL_PASSWORD"]
     except:
         return False
+    
     subject = "ÖdevMatik Doğrulama Kodu"
     body = f"Merhaba,\n\nKodunuz: {code}\n\nÖdevMatik Ekibi"
     msg = MIMEMultipart()
@@ -180,6 +193,7 @@ def send_verification_email(to_email, code):
     msg['To'] = to_email
     msg['Subject'] = subject
     msg.attach(MIMEText(body, 'plain'))
+
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
@@ -209,7 +223,7 @@ if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
 if "guest_locked_session" not in st.session_state: st.session_state.guest_locked_session = False
-if "ozel_icerik" not in st.session_state: st.session_state.ozel_icerik = None
+if "ozel_icerik" not in st.session_state: st.session_state.ozel_icerik = None # Notlar için hafıza
 
 # --- ÇEREZ ---
 time.sleep(0.1)
@@ -220,7 +234,8 @@ try:
         st.session_state.logged_in = True
         st.session_state.username = user_token
         st.rerun()
-except: pass
+except:
+    pass
 
 if "OPENAI_API_KEY" in st.secrets:
     api_key = st.secrets["OPENAI_API_KEY"]
@@ -283,7 +298,7 @@ st.divider()
 with st.sidebar:
     st.title("🗂️ Menü")
     
-    # --- YENİ: ANA EKRAN TUŞU ---
+    # ANA EKRAN BUTONU
     if st.button("🏠 Ana Ekran (Soru Çöz)", use_container_width=True):
         st.session_state.ozel_icerik = None
         st.session_state.son_cevap = None
@@ -291,15 +306,12 @@ with st.sidebar:
     
     st.divider()
 
-    # 1. DERS NOTU (MÜFREDATLI)
+    # 1. DERS NOTU (MÜFREDATLI + DETAYLI)
     with st.expander("📚 Ders Notu Oluştur"):
         st.caption("Sınıfına uygun özet çıkar!")
-        # Sınıf seçimi
         not_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="not_sinif")
-        # Ders seçimi (Sınıfa göre değişebilir ama şimdilik genel)
         dersler = list(MUFREDAT[not_sinif].keys()) if not_sinif in MUFREDAT else ["Matematik", "Fen", "Türkçe"]
         not_ders = st.selectbox("Ders:", dersler, key="not_ders")
-        # Konu seçimi (OTOMATİK LİSTE)
         konular = MUFREDAT[not_sinif].get(not_ders, ["Genel"])
         not_konu = st.selectbox("Konu:", konular, key="not_konu")
         
@@ -309,10 +321,24 @@ with st.sidebar:
                 if kredi > 0:
                     deduct_credit(st.session_state.username)
                     st.toast("1 Hak kullanıldı", icon="🎫")
-                    with st.spinner(f"{not_sinif} seviyesinde notlar hazırlanıyor..."):
-                        not_prompt = f"""ROL: {not_ders} öğretmeni. HEDEF: {not_sinif}. KONU: {not_konu}. Özetle, formülleri ver, hap bilgi ver."""
+                    with st.spinner(f"{not_sinif} seviyesinde detaylı notlar hazırlanıyor..."):
+                        # --- GÜÇLENDİRİLMİŞ PROMPT (DETAYLI ANLATIM) ---
+                        not_prompt = f"""
+                        GÖREV: Sen uzman bir {not_ders} öğretmenisin.
+                        HEDEF KİTLE: {not_sinif} öğrencisi.
+                        KONU: {not_konu}
+                        
+                        YAPMAN GEREKENLER:
+                        1. Bu konuyu bir öğrencinin kendi başına çalışıp anlayabileceği kadar DETAYLI anlat. (En az 400 kelime).
+                        2. Sadece tanım verme; mantığını, neden-sonuç ilişkisini açıkla.
+                        3. "Önemli Noktalar" başlığı altında, sınavda çıkabilecek tuzakları ve ipuçlarını listele.
+                        4. En az 3 adet ÇÖZÜMLÜ ÖRNEK ekle (Adım adım çözüm olsun).
+                        5. Varsa formülleri veya kuralları kutu içinde gibi vurgula.
+                        6. Üslubun samimi, motive edici ve akıcı olsun.
+                        """
                         try:
-                            resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": not_prompt}], max_tokens=1000)
+                            # Notlar uzun olacağı için token limitini artırdım
+                            resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": not_prompt}], max_tokens=1500)
                             st.session_state.ozel_icerik = resp.choices[0].message.content
                             st.session_state.icerik_tipi = "Ders Notu"
                             st.rerun()
@@ -320,7 +346,7 @@ with st.sidebar:
                 else: st.error("Hakkın bitti!")
             else: st.warning("Üye olmalısın.")
 
-    # 2. TEST HAZIRLA (MÜFREDATLI)
+    # 2. TEST HAZIRLA
     with st.expander("📝 Test Hazırla"):
         st.caption("Kendini test et!")
         q_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="q_sinif")
@@ -383,19 +409,19 @@ if not st.session_state.logged_in:
                 st.session_state.guest_locked_session = True
         except: pass
 
-# --- ÖZEL İÇERİK (PDF DÜZELTİLDİ) ---
+# --- ÖZEL İÇERİK (NOT/TEST) ---
 if st.session_state.ozel_icerik:
     st.info(f"📢 **{st.session_state.icerik_tipi} Hazır:**")
     st.markdown(f"""<div style="background-color:#fff9c4;padding:20px;border-radius:10px;color:#000080;font-size:18px;">{st.session_state.ozel_icerik}</div>""", unsafe_allow_html=True)
     
-    # PDF İNDİR (Türkçe karakterleri dönüştürerek)
+    # PDF İNDİR (TEMİZLENMİŞ)
     try:
         pdf_data = create_pdf(f"OdevMatik {st.session_state.icerik_tipi}", st.session_state.ozel_icerik)
         b64_pdf = base64.b64encode(pdf_data).decode('latin-1')
         href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="odevmatik_cikti.pdf"><button style="width:100%;height:50px;border-radius:10px;background-color:#FF5722;color:white;font-weight:bold;border:none;cursor:pointer;">📥 PDF Olarak İndir</button></a>'
         st.markdown(href, unsafe_allow_html=True)
     except Exception as e:
-        st.caption(f"PDF hatası: {e}")
+        st.caption(f"PDF Oluşturulamadı: {e}")
     
     st.markdown("---")
     if st.button("⬅️ Geri Dön (Ana Ekran)"):
