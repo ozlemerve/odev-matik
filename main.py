@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="main_auth")
+cookie_manager = stx.CookieManager(key="auth_mgr")
 
 # --- VERİTABANI ---
 def init_db():
@@ -139,7 +139,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- OTURUM ---
+# --- OTURUM BAŞLATMA ---
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
@@ -203,7 +203,7 @@ with col_auth:
                         else: st.error("Hata")
                 
                 if st.session_state.verification_code:
-                    kod_gir = st.text_input("Doğrulama Kodu:")
+                    kod_gir = st.text_input("Kod:")
                     if st.button("Onayla"):
                         if kod_gir == st.session_state.verification_code:
                             if add_user(r_email, r_pass):
@@ -224,12 +224,7 @@ with st.sidebar:
     
     if st.session_state.logged_in:
         total_solved = get_total_solved(st.session_state.username)
-        if total_solved < 5: rutbe = "Çırak 👶"
-        elif total_solved < 20: rutbe = "Kalfa 🧑‍🎓"
-        elif total_solved < 50: rutbe = "Usta 👨‍🏫"
-        else: rutbe = "Profesör 🧙‍♂️"
-        
-        st.write(f"**Rütben:** {rutbe}")
+        st.write(f"**Çözülen Soru:** {total_solved}")
         
         c1, c2 = st.columns(2)
         with c1: st.markdown(f"<div class='stat-box'><div class='stat-title'>Çözülen</div><div class='stat-value'>{total_solved}</div></div>", unsafe_allow_html=True)
@@ -248,15 +243,6 @@ with st.sidebar:
             else: st.caption("Henüz soru çözmedin.")
 
         st.divider()
-
-        with st.expander("💬 Bize Ulaşın"):
-            with st.form("feedback_form"):
-                feedback_msg = st.text_area("Mesajınız:")
-                if st.form_submit_button("Gönder"):
-                    save_feedback(st.session_state.username, feedback_msg)
-                    st.success("İletildi.")
-        
-        st.divider()
         if st.button("🚪 Çıkış Yap"):
             st.session_state.logged_in = False
             st.session_state.username = "Misafir"
@@ -269,14 +255,17 @@ with st.sidebar:
         st.info("🎁 **Üye ol, 5 soru hakkı kazan!**")
     
     st.divider()
+    # ADMIN BUTONU (DÜZELTİLDİ)
     if st.checkbox("Admin Modu"):
         if st.button("Misafir Hakkını Sıfırla"):
-            # DÜZELTME BURADA: Sadece silmek yetmez, hafızayı da açacağız
-            cookie_manager.delete("guest_used")
-            st.session_state.guest_locked_session = False
-            st.success("Sıfırlandı! Bekle...")
-            time.sleep(1) # TARAYICIYA ZAMAN TANI
-            st.rerun()
+            try: 
+                cookie_manager.delete("guest_used")
+                st.session_state.guest_locked_session = False
+                st.success("Sıfırlandı!")
+                time.sleep(1)
+                st.rerun()
+            except: 
+                pass
 
 # ==========================================
 # ANA EKRAN AKIŞI
@@ -285,10 +274,8 @@ with st.sidebar:
 # MİSAFİR KİLİDİ KONTROLÜ
 is_guest_locked = False
 if not st.session_state.logged_in:
-    # 1. Hafıza Kilidi
     if st.session_state.guest_locked_session:
         is_guest_locked = True
-    # 2. Çerez Kilidi
     else:
         try:
             cookies = cookie_manager.get_all()
@@ -311,11 +298,10 @@ if st.session_state.son_cevap:
     with p_col2: st.link_button("📧 Mail At", mail_link, use_container_width=True)
     st.divider()
 
-# --- YENİ SORU ALANI (KİLİT KONTROLÜ) ---
+# --- YENİ SORU ALANI ---
 if is_guest_locked:
     st.warning("⚠️ Misafir hakkını kullandın! Yeni soru için lütfen sağ üstten **Giriş Yap** veya **Kayıt Ol**.")
 else:
-    # GİRİŞ ALANLARI GÖSTERİLİYOR
     col1, col2, col3 = st.columns(3)
     with col1:
         if st.button("📁 Galeri", use_container_width=True): st.session_state.aktif_mod = "Galeri"
@@ -357,8 +343,6 @@ else:
     # --- ÇÖZÜM MOTORU ---
     if form_tetiklendi:
         can_proceed = False
-        
-        # 1. ÜYE
         if st.session_state.logged_in:
             kredi = get_credit(st.session_state.username)
             if kredi > 0:
@@ -367,12 +351,8 @@ else:
                 can_proceed = True
             else:
                 st.error("😔 Hakkın bitti!")
-        # 2. MİSAFİR (DAMGA YOKSA DEVAM ET)
         else:
-            if not is_guest_locked:
-                can_proceed = True
-            else:
-                st.warning("Hakkın bitti!")
+            can_proceed = True
 
         if can_proceed:
             with st.spinner(random.choice(["Hoca bakıyor...", "Çözülüyor..."])):
@@ -390,18 +370,19 @@ else:
                     response = client.chat.completions.create(model=secilen_model, messages=messages, max_tokens=1000)
                     cevap = response.choices[0].message.content
                     
+                    # 1. CEVABI KAYDET
+                    st.session_state.son_cevap = cevap
                     if st.session_state.logged_in:
                         save_history(st.session_state.username, "Soru", cevap)
                     
-                    st.session_state.son_cevap = cevap
-                    
-                    # MİSAFİRSE ÇEREZİ BAS VE RAM'İ KİLİTLE
+                    # 2. MİSAFİR İSE KİLİTLE
                     if not st.session_state.logged_in:
-                        st.session_state.guest_locked_session = True # RAM'den kilitle (Hızlı)
+                        st.session_state.guest_locked_session = True
                         try:
-                            cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1)) # Diske yaz
+                            cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
                         except: pass
                     
+                    # 3. YENİLE
                     st.rerun()
 
                 except Exception as e:
