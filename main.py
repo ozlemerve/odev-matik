@@ -11,7 +11,7 @@ from email.mime.multipart import MIMEMultipart
 import extra_streamlit_components as stx
 import datetime
 
-# --- AYARLAR ---
+# --- SETTINGS ---
 st.set_page_config(
     page_title="ÖdevMatik", 
     page_icon="📝",
@@ -19,28 +19,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- ÇEREZ YÖNETİCİSİ ---
-# key="auth" diyerek yöneticiyi sabitliyoruz
-cookie_manager = stx.CookieManager(key="auth_manager")
+# --- COOKIE MANAGER ---
+@st.cache_resource
+def get_manager():
+    return stx.CookieManager(key="odevmatik_auth")
 
-# --- OTURUM BAŞLATMA (EN BAŞTA YAPILMALI) ---
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "username" not in st.session_state:
-    st.session_state.username = "Misafir"
+cookie_manager = get_manager()
 
-# 🚀 KRİTİK HAMLE: ÇEREZ KONTROLÜ (GECİKMESİZ)
-# Tarayıcıdan gelen çerezi oku
-try:
-    user_token = cookie_manager.get(cookie="user_token")
-    # Eğer çerez varsa ve sistemde giriş yapılmamış görünüyorsa, zorla giriş yaptır.
-    if user_token and not st.session_state.logged_in:
-        st.session_state.logged_in = True
-        st.session_state.username = user_token
-except:
-    pass # Çerez henüz yüklenmediyse pas geç
-
-# --- VERİTABANI ---
+# --- DATABASE FUNCTIONS ---
 def init_db():
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
@@ -118,7 +104,7 @@ def save_feedback(username, message):
 
 init_db()
 
-# --- E-POSTA ---
+# --- EMAIL FUNCTION ---
 def send_verification_email(to_email, code):
     try:
         sender_email = st.secrets["EMAIL_ADDRESS"]
@@ -126,10 +112,10 @@ def send_verification_email(to_email, code):
     except:
         return False
     
-    subject = "ÖdevMatik Doğrulama Kodu"
-    body = f"Merhaba,\n\nKodunuz: {code}\n\nÖdevMatik Ekibi"
+    subject = "ÖdevMatik Verification Code"
+    body = f"Hello,\n\nYour verification code is: {code}\n\nÖdevMatik Team"
     msg = MIMEMultipart()
-    msg['From'] = f"ÖdevMatik Güvenlik <{sender_email}>"
+    msg['From'] = f"ÖdevMatik Security <{sender_email}>"
     msg['To'] = to_email
     msg['Subject'] = subject
     msg.attach(MIMEText(body, 'plain'))
@@ -157,167 +143,179 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- DİĞER SESSION STATE ---
+# --- SESSION STATE ---
+if "logged_in" not in st.session_state: st.session_state.logged_in = False
+if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
+
+# PERSISTENT LOGIN CHECK
+time.sleep(0.3)
+try:
+    user_cookie = cookie_manager.get("user_token")
+    if user_cookie and not st.session_state.logged_in:
+        st.session_state.logged_in = True
+        st.session_state.username = user_cookie
+except:
+    pass
 
 if "OPENAI_API_KEY" in st.secrets:
     api_key = st.secrets["OPENAI_API_KEY"]
 else:
-    st.warning("API Key Eksik!")
+    st.warning("API Key Missing!")
     st.stop()
 
 client = OpenAI(api_key=api_key)
 
 # ==========================================
-# ÜST BAR (GİRİŞ EKRANI)
+# HEADER (LOGIN/REGISTER)
 # ==========================================
 col_logo, col_auth = st.columns([2, 1])
 
 with col_logo:
     st.markdown("<h1 style='margin-bottom:0;'>📝 ÖdevMatik</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color:grey;'>Ödev asistanın cebinde!</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color:grey;'>Your homework assistant!</p>", unsafe_allow_html=True)
 
 with col_auth:
     if not st.session_state.logged_in:
-        with st.expander("🔐 Giriş / Kayıt"):
-            tab_login, tab_register = st.tabs(["Giriş", "Kayıt"])
+        with st.expander("🔐 Login / Register"):
+            tab_login, tab_register = st.tabs(["Login", "Register"])
+            
             with tab_login:
                 with st.form("top_login"):
                     l_user = st.text_input("Email", label_visibility="collapsed", placeholder="Email")
-                    l_pass = st.text_input("Şifre", type="password", label_visibility="collapsed", placeholder="Şifre")
-                    
-                    # GİRİŞ BUTONU
-                    if st.form_submit_button("Giriş Yap", type="primary"):
+                    l_pass = st.text_input("Password", type="password", label_visibility="collapsed", placeholder="Password")
+                    if st.form_submit_button("Login", type="primary"):
                         if login_user(l_user, l_pass):
-                            # 1. HEMEN MANUEL OLARAK AÇ
                             st.session_state.logged_in = True
                             st.session_state.username = l_user
-                            # 2. ÇEREZİ KAYDET (30 Günlük)
-                            cookie_manager.set("user_token", l_user, key="set_token", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
-                            st.success("Giriş yapıldı!")
-                            time.sleep(0.5)
+                            cookie_manager.set("user_token", l_user, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             st.rerun()
-                        else: st.error("Hatalı!")
-            
+                        else: st.error("Invalid credentials!")
+
             with tab_register:
                 r_email = st.text_input("Email", key="r_email")
-                r_pass = st.text_input("Şifre", type="password", key="r_pass")
-                if st.button("Kod Gönder"):
+                r_pass = st.text_input("Password", type="password", key="r_pass")
+                if st.button("Send Code"):
                     if "@" in r_email:
                         code = str(random.randint(1000,9999))
                         if send_verification_email(r_email, code):
                             st.session_state.verification_code = code
-                            st.success("Kod yollandı!")
-                        else: st.error("Hata")
+                            st.success("Code sent!")
+                        else: st.error("Error sending email")
+                
+                # FIXED INDENTATION HERE
                 if st.session_state.verification_code:
-                    kod_gir = st.text_input("Kod:")
-                    if st.button("Onayla"):
+                    kod_gir = st.text_input("Enter Code:")
+                    if st.button("Verify & Register"):
                         if kod_gir == st.session_state.verification_code:
                             if add_user(r_email, r_pass):
-                                st.success("Oldu! Giriş yap.")
+                                st.success("Success! Please Login.")
                                 st.session_state.verification_code = None
+                            else:
+                                st.error("User already exists.")
+                        else:
+                            st.error("Invalid code.")
     else:
         kredi = get_credit(st.session_state.username)
         st.info(f"👤 **{st.session_state.username.split('@')[0]}**")
-        st.caption(f"🎫 Kalan Hak: **{kredi}**")
+        st.caption(f"🎫 Credits: **{kredi}**")
 
 st.divider()
 
 # ==========================================
-# YAN MENÜ
+# SIDEBAR
 # ==========================================
 with st.sidebar:
-    st.title("🗂️ Öğrenci Paneli")
+    st.title("🗂️ Student Panel")
     
     if st.session_state.logged_in:
         total_solved = get_total_solved(st.session_state.username)
-        if total_solved < 5: rutbe = "Çırak 👶"
-        elif total_solved < 20: rutbe = "Kalfa 🧑‍🎓"
-        elif total_solved < 50: rutbe = "Usta 👨‍🏫"
-        else: rutbe = "Profesör 🧙‍♂️"
+        if total_solved < 5: rutbe = "Beginner 👶"
+        elif total_solved < 20: rutbe = "Apprentice 🧑‍🎓"
+        elif total_solved < 50: rutbe = "Master 👨‍🏫"
+        else: rutbe = "Professor 🧙‍♂️"
         
-        st.write(f"**Rütben:** {rutbe}")
+        st.write(f"**Rank:** {rutbe}")
         
         c1, c2 = st.columns(2)
-        with c1: st.markdown(f"<div class='stat-box'><div class='stat-title'>Çözülen</div><div class='stat-value'>{total_solved}</div></div>", unsafe_allow_html=True)
-        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Hak</div><div class='stat-value'>{get_credit(st.session_state.username)}</div></div>", unsafe_allow_html=True)
+        with c1: st.markdown(f"<div class='stat-box'><div class='stat-title'>Solved</div><div class='stat-value'>{total_solved}</div></div>", unsafe_allow_html=True)
+        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Credits</div><div class='stat-value'>{get_credit(st.session_state.username)}</div></div>", unsafe_allow_html=True)
         
         st.divider()
 
-        with st.expander("📜 Geçmiş Çözümlerim"):
+        with st.expander("📜 My History"):
             gecmis_veriler = get_user_history(st.session_state.username)
             if gecmis_veriler:
                 for soru, cevap, zaman in gecmis_veriler:
                     st.text(f"📅 {zaman[:10]}")
                     st.caption(f"❓ {soru[:30]}...")
-                    with st.popover("Cevabı Gör"):
+                    with st.popover("See Answer"):
                         st.write(cevap)
-            else: st.caption("Henüz soru çözmedin.")
+            else: st.caption("No history yet.")
 
         st.divider()
 
-        with st.expander("💬 Bize Ulaşın"):
+        with st.expander("💬 Contact Us"):
             with st.form("feedback_form"):
-                feedback_msg = st.text_area("Mesajınız:")
-                if st.form_submit_button("Gönder"):
+                feedback_msg = st.text_area("Message:")
+                if st.form_submit_button("Send"):
                     save_feedback(st.session_state.username, feedback_msg)
-                    st.success("İletildi.")
+                    st.success("Sent!")
         
         st.divider()
-        if st.button("🚪 Çıkış Yap"):
+        if st.button("🚪 Logout"):
             st.session_state.logged_in = False
             st.session_state.username = "Misafir"
-            # ÇEREZİ SİL
             cookie_manager.delete("user_token")
+            time.sleep(0.5)
             st.rerun()
 
     else:
-        st.warning("⚠️ Misafir Modu")
-        st.info("🎁 **Üye ol, 5 soru hakkı kazan!**")
+        st.warning("⚠️ Guest Mode")
+        st.info("🎁 **Register to get 5 free credits!**")
     
     st.divider()
-    if st.checkbox("Admin Modu"):
-        if st.button("Misafir Hakkını Sıfırla"):
+    if st.checkbox("Admin Mode"):
+        if st.button("Reset Guest Access"):
             try: cookie_manager.delete("guest_used"); st.rerun()
             except: pass
 
 # ==========================================
-# ANA EKRAN AKIŞI
+# MAIN APP FLOW
 # ==========================================
 
 guest_locked = False
 try:
-    # Eğer giriş yapmamışsa ve misafir çerezi varsa kilitle
     if not st.session_state.logged_in and cookie_manager.get("guest_used"):
         guest_locked = True
 except: pass
 
-# SONUÇ GÖSTERİMİ (HER ZAMAN GÖSTER)
+# DISPLAY RESULT (ALWAYS SHOW IF EXISTS)
 if st.session_state.son_cevap:
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{st.session_state.son_cevap}</div>""", unsafe_allow_html=True)
     
     st.write("")
-    st.markdown("### 📤 Paylaş")
-    paylasim_metni = urllib.parse.quote(f"ÖdevMatik Çözümü:\n\n{st.session_state.son_cevap}\n\n--- ÖdevMatik ile çözüldü.")
+    st.markdown("### 📤 Share")
+    paylasim_metni = urllib.parse.quote(f"ÖdevMatik Solution:\n\n{st.session_state.son_cevap}\n\n--- Solved with ÖdevMatik.")
     whatsapp_link = f"https://api.whatsapp.com/send?text={paylasim_metni}"
-    mail_link = f"mailto:?subject=ÖdevMatik Çözümü&body={paylasim_metni}"
+    mail_link = f"mailto:?subject=ÖdevMatik Solution&body={paylasim_metni}"
     p_col1, p_col2 = st.columns(2)
     with p_col1: st.link_button("💬 WhatsApp", whatsapp_link, use_container_width=True)
-    with p_col2: st.link_button("📧 Mail At", mail_link, use_container_width=True)
+    with p_col2: st.link_button("📧 Mail", mail_link, use_container_width=True)
     st.divider()
 
-# YENİ SORU ALANI (KİLİT KONTROLÜ)
+# INPUT AREA (LOCK CHECK)
 if guest_locked and not st.session_state.logged_in:
-    st.warning("⚠️ Misafir hakkını kullandın! Yeni soru için lütfen sağ üstten **Giriş Yap** veya **Kayıt Ol**.")
+    st.warning("⚠️ Guest limit reached! Please **Login** or **Register** top right to continue.")
 else:
     col1, col2, col3 = st.columns(3)
     with col1:
-        if st.button("📁 Galeri", use_container_width=True): st.session_state.aktif_mod = "Galeri"
+        if st.button("📁 Gallery", use_container_width=True): st.session_state.aktif_mod = "Galeri"
     with col2:
-        if st.button("📸 Kamera", use_container_width=True): st.session_state.aktif_mod = "Kamera"
+        if st.button("📸 Camera", use_container_width=True): st.session_state.aktif_mod = "Kamera"
     with col3:
-        if st.button("⌨️ Yaz", use_container_width=True): st.session_state.aktif_mod = "Yaz"
+        if st.button("⌨️ Type", use_container_width=True): st.session_state.aktif_mod = "Yaz"
 
     if "aktif_mod" not in st.session_state: st.session_state.aktif_mod = "Galeri"
 
@@ -328,49 +326,77 @@ else:
     form_tetiklendi = False
 
     if st.session_state.aktif_mod == "Galeri":
-        st.info("📂 **Galeriden Seç**")
+        st.info("📂 **Select from Gallery**")
         yuklenen_dosya = st.file_uploader("", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
         if yuklenen_dosya:
             gorsel_veri = yuklenen_dosya.getvalue()
-            if st.button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True): form_tetiklendi = True
+            if st.button("Solve & Write ✍️", type="primary", use_container_width=True): form_tetiklendi = True
 
     elif st.session_state.aktif_mod == "Kamera":
-        st.info("📸 **Fotoğraf Çek**")
-        cekilen_foto = st.camera_input("Kamerayı aç")
+        st.info("📸 **Take Photo**")
+        cekilen_foto = st.camera_input("Open Camera")
         if cekilen_foto:
             gorsel_veri = cekilen_foto.getvalue()
-            if st.button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True): form_tetiklendi = True
+            if st.button("Solve & Write ✍️", type="primary", use_container_width=True): form_tetiklendi = True
 
     elif st.session_state.aktif_mod == "Yaz":
-        st.info("⌨️ **Soruyu Elle Yaz**")
+        st.info("⌨️ **Type Question**")
         with st.form(key='soru_yazma_formu'):
-            metin_sorusu = st.text_area("", height=150, placeholder="Sorunu buraya yaz...")
+            metin_sorusu = st.text_area("", height=150, placeholder="Type your question here...")
             st.write("")
-            submit_soru = st.form_submit_button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True)
+            submit_soru = st.form_submit_button("Solve & Write ✍️", type="primary", use_container_width=True)
             if submit_soru and metin_sorusu: form_tetiklendi = True
 
+    # --- SOLUTION ENGINE ---
     if form_tetiklendi:
         can_proceed = False
         if st.session_state.logged_in:
             kredi = get_credit(st.session_state.username)
             if kredi > 0:
                 deduct_credit(st.session_state.username)
-                st.toast("1 Hak düştü!", icon="🎫")
+                st.toast("1 Credit used!", icon="🎫")
                 can_proceed = True
             else:
-                st.error("😔 Hakkın bitti!")
+                st.error("😔 Out of credits!")
         else:
             try:
                 cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
-                st.toast("Misafir hakkın kullanıldı!", icon="🎁")
+                st.toast("Guest credit used!", icon="🎁")
                 can_proceed = True
             except: pass
 
         if can_proceed:
-            with st.spinner(random.choice(["Hoca bakıyor...", "Çözülüyor..."])):
+            with st.spinner(random.choice(["Looking at it...", "Solving...", "Thinking..."])):
                 try:
-                    ana_prompt = """GÖREV: Soruyu öğrenci gibi çöz. Adım adım git. LaTeX kullanma. Samimi ol."""
+                    ana_prompt = """ROLE: You are a helpful student assistant. Solve the problem step-by-step. Use plain text, no LaTeX. Be friendly."""
 
                     if gorsel_veri:
                         secilen_model = "gpt-4o"
-                        base64_image = base64.b64encode(gorsel_veri).decode('
+                        base64_image = base64.b64encode(gorsel_veri).decode('utf-8')
+                        messages = [
+                            {"role": "system", "content": ana_prompt},
+                            {"role": "user", "content": [
+                                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                            ]}
+                        ]
+                    elif metin_sorusu:
+                        secilen_model = "gpt-4o-mini"
+                        messages = [
+                            {"role": "system", "content": ana_prompt},
+                            {"role": "user", "content": f"Soru: {metin_sorusu}"}
+                        ]
+
+                    response = client.chat.completions.create(model=secilen_model, messages=messages, max_tokens=1000)
+                    cevap = response.choices[0].message.content
+                    
+                    if st.session_state.logged_in:
+                        save_history(st.session_state.username, "Question", cevap)
+                    
+                    st.session_state.son_cevap = cevap
+                    st.rerun()
+
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+st.divider()
+st.caption("⚠️ **Disclaimer:** Results are generated by AI and may contain errors.")
