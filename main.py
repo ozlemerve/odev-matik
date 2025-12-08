@@ -23,7 +23,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v42")
+cookie_manager = stx.CookieManager(key="auth_mgr_v43")
 
 # --- MÜFREDAT VERİTABANI ---
 MUFREDAT = {
@@ -285,7 +285,7 @@ with st.sidebar:
         st.rerun()
     st.divider()
 
-    # 1. DERS NOTU (MATEMATİK 15 SORU MODU)
+    # DERS NOTU
     with st.expander("📚 Ders Notu Oluştur"):
         st.caption("Detaylı ve sembollü anlatım!")
         not_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="not_sinif")
@@ -316,35 +316,45 @@ with st.sidebar:
                 else: st.error("Hakkın bitti!")
             else: st.warning("Üye olmalısın.")
 
-    # 2. TEST HAZIRLA (PROBLEM MODU)
+    # --- TEST HAZIRLA (GÜNCELLENDİ) ---
     with st.expander("📝 Test Hazırla"):
         q_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="q_sinif")
         q_dersler = list(MUFREDAT[q_sinif].keys()) if q_sinif in MUFREDAT else ["Matematik"]
         q_ders = st.selectbox("Ders:", q_dersler, key="q_ders")
         q_konular = MUFREDAT[q_sinif].get(q_ders, ["Genel"])
         q_konu = st.selectbox("Konu:", q_konular, key="q_konu")
-        q_zorluk = st.select_slider("Zorluk:", options=["Kolay", "Orta", "Zor"])
-        if st.button("Soru Yazdır ✍️"):
+        
+        # Soru Sayısı Slider
+        q_adet = st.slider("Soru Sayısı:", 1, 20, 5)
+        
+        st.write("Zorluk Seç ve Üret:")
+        # Yan Yana 3 Buton
+        b1, b2, b3 = st.columns(3)
+        zorluk_secimi = None
+        
+        if b1.button("🟢 Kolay", use_container_width=True): zorluk_secimi = "Kolay"
+        if b2.button("🟡 Orta", use_container_width=True): zorluk_secimi = "Orta"
+        if b3.button("🔴 Zor", use_container_width=True): zorluk_secimi = "Zor"
+        
+        if zorluk_secimi:
             if st.session_state.logged_in:
                 if get_credit(st.session_state.username) > 0:
                     deduct_credit(st.session_state.username); st.toast("1 Hak kullanıldı", icon="🎫")
-                    with st.spinner("Yazılıyor..."):
-                        # --- PROBLEM ODAKLI PROMPT ---
+                    with st.spinner(f"{q_adet} adet {zorluk_secimi} soru yazılıyor..."):
                         soru_prompt = f"""
-                        GÖREV: {q_sinif} seviyesi {q_ders} dersi "{q_konu}" konusu. {q_zorluk} seviyesinde 1 adet SORU yaz.
+                        GÖREV: {q_sinif} seviyesi {q_ders} dersi "{q_konu}" konusu.
                         
-                        DİKKAT:
-                        1. Sadece "işlem sorusu" sorma! (Örn: 2+2=? deme).
-                        2. HİKAYELEŞTİRİLMİŞ, MANTIK MUHAKEME gerektiren, GÜNLÜK HAYATLA İLİŞKİLİ bir PROBLEM sor.
-                        3. "Beceri Temelli" ifadesini kullanma. Sadece soru metnini yaz.
-                        4. Başlık olarak: **[ Seviye: {q_zorluk} ]** yaz.
-                        5. Altına 'ÇÖZÜM:' başlığıyla detaylı çözümü ekle.
-                        6. Sembolleri (√, ², π) doğrudan kullan.
+                        YAPILACAK:
+                        1. Tam {q_adet} adet {zorluk_secimi} seviyesinde SORU yaz.
+                        2. Soruları 1., 2., 3. diye numaralandır.
+                        3. Sadece işlem sorma, HİKAYELİ PROBLEMLER sor.
+                        4. Her sorunun altına 'ÇÖZÜM:' başlığıyla detaylı cevabını yaz.
+                        5. Sembolleri (√, ², π) doğrudan kullan.
                         """
                         try:
-                            resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": soru_prompt}], max_tokens=1000)
+                            resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": soru_prompt}], max_tokens=2000)
                             st.session_state.ozel_icerik = resp.choices[0].message.content
-                            st.session_state.icerik_tipi = "Test Sorusu"
+                            st.session_state.icerik_tipi = f"{zorluk_secimi} Seviye Test"
                             st.rerun()
                         except: st.error("Hata")
                 else: st.error("Hakkın bitti!")
@@ -379,7 +389,6 @@ if st.session_state.ozel_icerik:
     st.info(f"📢 **{st.session_state.icerik_tipi} Hazır:**")
     st.markdown(f"""<div style="background-color:#fff9c4;padding:20px;border-radius:10px;color:#000080;font-size:18px;">{st.session_state.ozel_icerik}</div>""", unsafe_allow_html=True)
     
-    # PDF OLUŞTURMA
     try:
         pdf_bytes = create_safe_pdf(f"OdevMatik {st.session_state.icerik_tipi}", st.session_state.ozel_icerik)
         st.download_button(
@@ -390,8 +399,7 @@ if st.session_state.ozel_icerik:
             use_container_width=True,
             type="primary"
         )
-    except:
-        st.warning("PDF oluşturulamadı (Font sorunu olabilir).")
+    except: pass
     
     st.markdown("---")
     if st.button("⬅️ Geri Dön (Ana Ekran)"): st.session_state.ozel_icerik = None; st.rerun()
@@ -408,8 +416,7 @@ else:
                 data=pdf_bytes,
                 file_name="odevmatik_cozum.pdf",
                 mime="application/pdf",
-                use_container_width=True,
-                type="primary"
+                use_container_width=True
             )
         except: pass
 
