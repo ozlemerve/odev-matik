@@ -23,7 +23,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v39")
+cookie_manager = stx.CookieManager(key="auth_mgr_v40")
 
 # --- MÜFREDAT VERİTABANI ---
 MUFREDAT = {
@@ -120,48 +120,56 @@ def save_feedback(username, message):
 
 init_db()
 
-# --- PDF MOTORU (SEMBOL DESTEKLİ) ---
-def download_font():
+# --- PDF MOTORU (HATA VERMEZ) ---
+def clean_text_for_pdf(text):
+    replacements = {
+        'ğ': 'g', 'Ğ': 'G', 'ş': 's', 'Ş': 'S', 'ı': 'i', 'İ': 'I', 'ç': 'c', 'Ç': 'C', 'ö': 'o', 'Ö': 'O', 'ü': 'u', 'Ü': 'U',
+        '√': 'kok', '²': '^2', '³': '^3', 'π': 'pi', '∞': 'sonsuz', 
+        '≠': 'esit degil', '≤': '<=', '≥': '>=', '×': 'x', '·': '*', '÷': '/', 
+        '±': '+/-', '≈': 'yaklasik', '∫': 'integral', '∑': 'toplam', '∆': 'delta'
+    }
+    text = text.replace('**', '').replace('__', '').replace('###', '').replace('##', '').replace('#', '')
+    for search, replace in replacements.items():
+        text = text.replace(search, replace)
+    return text.encode('latin-1', 'replace').decode('latin-1')
+
+def create_safe_pdf(title, content):
+    # Font indirmeyi dene, olmazsa geç
     font_path = "DejaVuSans.ttf"
     if not os.path.exists(font_path):
-        url = "https://github.com/realsung/whiteboard/raw/master/src/fonts/DejaVuSans.ttf"
         try:
-            r = requests.get(url)
+            url = "https://github.com/realsung/whiteboard/raw/master/src/fonts/DejaVuSans.ttf"
+            r = requests.get(url, timeout=2) # 2 saniye bekle, inmezse sal
             with open(font_path, "wb") as f:
                 f.write(r.content)
         except: pass
 
-def create_pdf_with_math(title, content):
-    download_font()
     pdf = FPDF()
     pdf.add_page()
     
-    # Fontu yükle (Varsa DejaVu, yoksa Arial)
-    if os.path.exists("DejaVuSans.ttf"):
-        pdf.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
-        pdf.set_font('DejaVu', '', 14)
+    # Font kontrolü
+    if os.path.exists(font_path):
+        try:
+            pdf.add_font('DejaVu', '', font_path, uni=True)
+            pdf.set_font('DejaVu', '', 12)
+            use_unicode = True
+        except:
+            pdf.set_font("Arial", size=12)
+            use_unicode = False
     else:
-        pdf.set_font("Arial", 'B', 14)
+        pdf.set_font("Arial", size=12)
+        use_unicode = False
     
     # Başlık
-    pdf.cell(0, 10, str(title), ln=True, align='C')
+    safe_title = title if use_unicode else clean_text_for_pdf(title)
+    pdf.cell(0, 10, safe_title, ln=True, align='C')
     pdf.ln(10)
     
     # İçerik
-    if os.path.exists("DejaVuSans.ttf"):
-        pdf.set_font('DejaVu', '', 11)
-    else:
-        pdf.set_font("Arial", size=11)
-        
-    # Unicode karakterleri basabilmek için multi_cell
-    pdf.multi_cell(0, 7, str(content))
+    safe_content = content if use_unicode else clean_text_for_pdf(content)
+    pdf.multi_cell(0, 7, safe_content)
     
-    # Dosyayı geçici olarak kaydet ve okuyup geri dön (En güvenli yol)
-    pdf_output_path = "/tmp/cikti.pdf" if os.path.exists("/tmp") else "cikti.pdf"
-    pdf.output(pdf_output_path)
-    
-    with open(pdf_output_path, "rb") as f:
-        return f.read()
+    return pdf.output(dest='S').encode('latin-1')
 
 # --- E-POSTA ---
 def send_verification_email(to_email, code):
@@ -281,7 +289,7 @@ with st.sidebar:
         st.rerun()
     st.divider()
 
-    # 1. DERS NOTU (YENİLENMİŞ)
+    # DERS NOTU
     with st.expander("📚 Ders Notu Oluştur"):
         not_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="not_sinif")
         dersler = list(MUFREDAT[not_sinif].keys()) if not_sinif in MUFREDAT else ["Matematik"]
@@ -295,12 +303,9 @@ with st.sidebar:
                     deduct_credit(st.session_state.username); st.toast("1 Hak kullanıldı", icon="🎫")
                     with st.spinner("Hazırlanıyor..."):
                         if not_ders == "Matematik":
-                            not_prompt = f"""SEN BİR MATEMATİK DERS KİTABI YAZARISIN. SINIF: {not_sinif}. KONU: {not_konu}.
-                            GÖREV: Detaylı anlat. EN AZ 1100 KELİME. EN AZ 15 ÖRNEK ÇÖZ.
-                            Sembolleri (√, ², π, ∫) DOĞRUDAN kullan. Asla LaTeX kodu kullanma."""
+                            not_prompt = f"""SEN BİR MATEMATİK DERS KİTABI YAZARISIN. SINIF: {not_sinif}. KONU: {not_konu}. DETAYLI ANLAT. EN AZ 15 ÖRNEK ÇÖZ. SEMBOLLERİ (√, ², π) KULLAN."""
                         else:
-                            not_prompt = f"""SEN BİR DERS KİTABI YAZARISIN. DERS: {not_ders}. SINIF: {not_sinif}. KONU: {not_konu}.
-                            GÖREV: Detaylı anlat. 3 ÖRNEK VER."""
+                            not_prompt = f"""SEN BİR DERS KİTABI YAZARISIN. DERS: {not_ders}. SINIF: {not_sinif}. KONU: {not_konu}. DETAYLI ANLAT. 3 ÖRNEK VER."""
                         try:
                             max_tok = 3000 if not_ders == "Matematik" else 2000
                             resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": not_prompt}], max_tokens=max_tok)
@@ -311,7 +316,7 @@ with st.sidebar:
                 else: st.error("Hakkın bitti!")
             else: st.warning("Üye olmalısın.")
 
-    # 2. TEST HAZIRLA
+    # TEST HAZIRLA
     with st.expander("📝 Test Hazırla"):
         q_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="q_sinif")
         q_dersler = list(MUFREDAT[q_sinif].keys()) if q_sinif in MUFREDAT else ["Matematik"]
@@ -324,7 +329,7 @@ with st.sidebar:
                 if get_credit(st.session_state.username) > 0:
                     deduct_credit(st.session_state.username); st.toast("1 Hak kullanıldı", icon="🎫")
                     with st.spinner("Yazılıyor..."):
-                        soru_prompt = f"""GÖREV: {q_sinif} {q_ders} "{q_konu}" {q_zorluk} soru yaz. SEMBOLLERİ (√, ², π) DOĞRUDAN KULLAN. Cevabı altına 'ÇÖZÜM:' diye ekle."""
+                        soru_prompt = f"""GÖREV: {q_sinif} {q_ders} "{q_konu}" {q_zorluk} soru yaz. SEMBOLLERİ (√, ², π) KULLAN. Cevabı altına 'ÇÖZÜM:' diye ekle."""
                         try:
                             resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": soru_prompt}], max_tokens=1000)
                             st.session_state.ozel_icerik = resp.choices[0].message.content
@@ -348,7 +353,7 @@ with st.sidebar:
                 update_credit(st.session_state.username, 100); st.success("Yüklendi! Yenile."); time.sleep(1); st.rerun()
 
 # ==========================================
-# ANA EKRAN AKIŞI
+# ANA EKRAN
 # ==========================================
 
 guest_locked = False
@@ -358,14 +363,14 @@ if not st.session_state.logged_in:
         if "guest_used" in cookies: guest_locked = True
     except: pass
 
-# --- 1. ÖZEL İÇERİK VARSA (PDF BUTONU DÜZELTİLDİ) ---
+# --- 1. ÖZEL İÇERİK VARSA ---
 if st.session_state.ozel_icerik:
     st.info(f"📢 **{st.session_state.icerik_tipi} Hazır:**")
     st.markdown(f"""<div style="background-color:#fff9c4;padding:20px;border-radius:10px;color:#000080;font-size:18px;">{st.session_state.ozel_icerik}</div>""", unsafe_allow_html=True)
     
-    # PDF OLUŞTUR VE İNDİR BUTONU
+    # PDF OLUŞTURMA (HATA KORUMALI)
     try:
-        pdf_bytes = create_pdf_with_math(f"OdevMatik {st.session_state.icerik_tipi}", st.session_state.ozel_icerik)
+        pdf_bytes = create_safe_pdf(f"OdevMatik {st.session_state.icerik_tipi}", st.session_state.ozel_icerik)
         st.download_button(
             label="📥 PDF Olarak İndir",
             data=pdf_bytes,
@@ -374,7 +379,8 @@ if st.session_state.ozel_icerik:
             use_container_width=True,
             type="primary"
         )
-    except Exception as e: st.caption(f"PDF Hatası: {e}")
+    except:
+        st.warning("PDF oluşturulamadı (Font sorunu olabilir). Ekran görüntüsü alınız.")
     
     st.markdown("---")
     if st.button("⬅️ Geri Dön (Ana Ekran)"): st.session_state.ozel_icerik = None; st.rerun()
@@ -384,9 +390,9 @@ else:
     if st.session_state.son_cevap:
         st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{st.session_state.son_cevap}</div>""", unsafe_allow_html=True)
         
-        # PDF İNDİR BUTONU (CEVAP İÇİN)
+        # PDF BUTONU (CEVAP İÇİN)
         try:
-            pdf_bytes = create_pdf_with_math("OdevMatik Cozum", st.session_state.son_cevap)
+            pdf_bytes = create_safe_pdf("OdevMatik Cozum", st.session_state.son_cevap)
             st.download_button(
                 label="📥 PDF Olarak İndir",
                 data=pdf_bytes,
@@ -394,7 +400,7 @@ else:
                 mime="application/pdf",
                 use_container_width=True
             )
-        except Exception as e: st.caption(f"PDF Hatası: {e}")
+        except: pass
 
         st.write(""); st.markdown("### 📤 Paylaş")
         paylasim_metni = urllib.parse.quote(f"ÖdevMatik Çözümü:\n\n{st.session_state.son_cevap}\n\n--- ÖdevMatik ile çözüldü.")
