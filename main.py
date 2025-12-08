@@ -23,11 +23,11 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v43")
+cookie_manager = stx.CookieManager(key="auth_mgr_v44")
 
 # --- MÜFREDAT VERİTABANI ---
 MUFREDAT = {
-    "5. Sınıf (Maarif)": {"Matematik": ["Doğal Sayılar", "Kesirler"], "Fen": ["Güneş", "Canlılar"]},
+    "5. Sınıf (Maarif)": {"Matematik": ["Doğal Sayılar", "Kesirler", "Ondalık Gösterim", "Yüzdeler", "Geometrik Cisimler"], "Fen": ["Güneş", "Canlılar"]},
     "6. Sınıf (Maarif)": {"Matematik": ["Doğal Sayılar", "Çarpanlar", "Kümeler"], "Fen": ["Güneş Sistemi", "Vücudumuz"]},
     "7. Sınıf": {"Matematik": ["Tam Sayılar", "Rasyonel Sayılar"], "Fen": ["Uzay", "Hücre"]},
     "8. Sınıf (LGS)": {"Matematik": ["Çarpanlar Katlar", "Üslü İfadeler", "Kareköklü İfadeler", "Veri Analizi", "Olasılık", "Cebirsel", "Denklem"], "Fen": ["Mevsimler", "DNA"]},
@@ -316,45 +316,46 @@ with st.sidebar:
                 else: st.error("Hakkın bitti!")
             else: st.warning("Üye olmalısın.")
 
-    # --- TEST HAZIRLA (GÜNCELLENDİ) ---
+    # --- TEST HAZIRLA (DÜZENLENDİ) ---
     with st.expander("📝 Test Hazırla"):
+        st.caption("Adet ve zorluk seç, testi oluştur.")
+        
         q_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="q_sinif")
         q_dersler = list(MUFREDAT[q_sinif].keys()) if q_sinif in MUFREDAT else ["Matematik"]
         q_ders = st.selectbox("Ders:", q_dersler, key="q_ders")
         q_konular = MUFREDAT[q_sinif].get(q_ders, ["Genel"])
         q_konu = st.selectbox("Konu:", q_konular, key="q_konu")
         
-        # Soru Sayısı Slider
-        q_adet = st.slider("Soru Sayısı:", 1, 20, 5)
+        st.write("---")
+        # 1. SORU SAYISI (SLIDER)
+        q_adet = st.slider("Kaç soru olsun?", min_value=1, max_value=20, value=5)
         
-        st.write("Zorluk Seç ve Üret:")
-        # Yan Yana 3 Buton
-        b1, b2, b3 = st.columns(3)
-        zorluk_secimi = None
+        # 2. ZORLUK SEVİYESİ (SADE YATAY SEÇİM)
+        st.write("Zorluk Seviyesi:")
+        q_zorluk = st.radio("Zorluk:", ["Kolay", "Orta", "Zor"], horizontal=True, label_visibility="collapsed")
         
-        if b1.button("🟢 Kolay", use_container_width=True): zorluk_secimi = "Kolay"
-        if b2.button("🟡 Orta", use_container_width=True): zorluk_secimi = "Orta"
-        if b3.button("🔴 Zor", use_container_width=True): zorluk_secimi = "Zor"
+        st.write("")
         
-        if zorluk_secimi:
+        # 3. İŞLEM BUTONU (AYRI VE NET)
+        if st.button("Soruları Oluştur 🚀", use_container_width=True):
             if st.session_state.logged_in:
                 if get_credit(st.session_state.username) > 0:
                     deduct_credit(st.session_state.username); st.toast("1 Hak kullanıldı", icon="🎫")
-                    with st.spinner(f"{q_adet} adet {zorluk_secimi} soru yazılıyor..."):
+                    with st.spinner(f"{q_adet} adet {q_zorluk} soru hazırlanıyor..."):
                         soru_prompt = f"""
                         GÖREV: {q_sinif} seviyesi {q_ders} dersi "{q_konu}" konusu.
                         
                         YAPILACAK:
-                        1. Tam {q_adet} adet {zorluk_secimi} seviyesinde SORU yaz.
+                        1. Tam {q_adet} adet {q_zorluk} seviyesinde SORU yaz.
                         2. Soruları 1., 2., 3. diye numaralandır.
                         3. Sadece işlem sorma, HİKAYELİ PROBLEMLER sor.
                         4. Her sorunun altına 'ÇÖZÜM:' başlığıyla detaylı cevabını yaz.
-                        5. Sembolleri (√, ², π) doğrudan kullan.
+                        5. Sembolleri (√, ², π) doğrudan kullan. LaTeX KULLANMA.
                         """
                         try:
-                            resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": soru_prompt}], max_tokens=2000)
+                            resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": soru_prompt}], max_tokens=2500)
                             st.session_state.ozel_icerik = resp.choices[0].message.content
-                            st.session_state.icerik_tipi = f"{zorluk_secimi} Seviye Test"
+                            st.session_state.icerik_tipi = "Test Sorusu"
                             st.rerun()
                         except: st.error("Hata")
                 else: st.error("Hakkın bitti!")
