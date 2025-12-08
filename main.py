@@ -10,7 +10,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import extra_streamlit_components as stx
 import datetime
-from fpdf import FPDF # PDF Kütüphanesi
+from fpdf import FPDF
 
 # --- AYARLAR ---
 st.set_page_config(
@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v2")
+cookie_manager = stx.CookieManager(key="auth_mgr_final")
 
 # --- VERİTABANI ---
 def init_db():
@@ -101,28 +101,18 @@ def save_feedback(username, message):
 
 init_db()
 
-# --- PDF OLUŞTURMA FONKSİYONU ---
+# --- PDF OLUŞTURMA ---
 def create_pdf(title, content):
     pdf = FPDF()
     pdf.add_page()
-    # Türkçe karakter desteği için font (Arial benzeri standart font)
-    # Not: FPDF'in standart fontları Türkçe karakterlerde (ğ, ş, ı) sorun çıkarabilir.
-    # Bu yüzden karakterleri replace ediyoruz veya latin-1 uyumlu hale getiriyoruz.
-    # (Profesyonel çözümde .ttf font dosyası yüklenir ama şu an basit tutuyoruz)
-    
     pdf.set_font("Arial", 'B', 16)
-    # Başlık (Türkçe karakterleri basitçe düzeltiyoruz)
     safe_title = title.encode('latin-1', 'replace').decode('latin-1')
     pdf.cell(0, 10, safe_title, ln=True, align='C')
     pdf.ln(10)
-    
     pdf.set_font("Arial", size=12)
-    # İçerik
-    # Satır satır yazdırıyoruz
     for line in content.split('\n'):
         safe_line = line.encode('latin-1', 'replace').decode('latin-1')
         pdf.multi_cell(0, 10, safe_line)
-        
     return pdf.output(dest='S').encode('latin-1')
 
 # --- E-POSTA ---
@@ -132,7 +122,6 @@ def send_verification_email(to_email, code):
         sender_password = st.secrets["EMAIL_PASSWORD"]
     except:
         return False
-    
     subject = "ÖdevMatik Doğrulama Kodu"
     body = f"Merhaba,\n\nKodunuz: {code}\n\nÖdevMatik Ekibi"
     msg = MIMEMultipart()
@@ -140,7 +129,6 @@ def send_verification_email(to_email, code):
     msg['To'] = to_email
     msg['Subject'] = subject
     msg.attach(MIMEText(body, 'plain'))
-
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
@@ -164,12 +152,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- OTURUM BAŞLATMA ---
+# --- OTURUM ---
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
 if "guest_locked_session" not in st.session_state: st.session_state.guest_locked_session = False
+if "ozel_icerik" not in st.session_state: st.session_state.ozel_icerik = None # Notlar için hafıza
 
 # --- ÇEREZ KONTROLÜ ---
 time.sleep(0.1)
@@ -226,7 +215,7 @@ with col_auth:
                             st.success("Kod yollandı!")
                         else: st.error("Hata")
                 if st.session_state.verification_code:
-                    kod_gir = st.text_input("Doğrulama Kodu:")
+                    kod_gir = st.text_input("Kod:")
                     if st.button("Onayla"):
                         if kod_gir == st.session_state.verification_code:
                             if add_user(r_email, r_pass):
@@ -240,17 +229,24 @@ with col_auth:
 st.divider()
 
 # ==========================================
-# YAN MENÜ (YENİ EĞİTİM MODÜLLERİ)
+# YAN MENÜ (NAVİGASYONLU)
 # ==========================================
 with st.sidebar:
-    st.title("🗂️ Eğitim Menüsü")
+    st.title("🗂️ Menü")
     
-    # 1. AKILLI DERS NOTLARI
-    with st.expander("📚 Ders Notu İste"):
+    # --- YENİ: ANA EKRAN TUŞU ---
+    if st.button("🏠 Ana Ekran (Soru Çöz)", use_container_width=True):
+        st.session_state.ozel_icerik = None # Notları kapat
+        st.session_state.son_cevap = None # Eski cevabı temizle (isteğe bağlı)
+        st.rerun()
+    
+    st.divider()
+
+    # 1. DERS NOTU OLUŞTUR (İsim Güncellendi)
+    with st.expander("📚 Ders Notu Oluştur"):
         st.caption("Sınıfına uygun özet çıkar!")
-        # Sınıf Seviyesi Seçimi
         sinif_seviyesi = st.selectbox("Sınıf Seviyesi:", ["5. Sınıf", "6. Sınıf", "7. Sınıf", "8. Sınıf", "9. Sınıf (Lise 1)", "10. Sınıf (Lise 2)", "11. Sınıf (Lise 3)", "12. Sınıf (YKS)"], key="not_sinif")
-        ders_secimi = st.selectbox("Ders:", ["Matematik", "Fen Bilimleri/Fizik-Kimya-Biyoloji", "Türkçe/Edebiyat", "Sosyal Bilgiler/Tarih", "İngilizce"], key="not_ders")
+        ders_secimi = st.selectbox("Ders:", ["Matematik", "Fen Bilimleri", "Türkçe", "İnkılap Tarihi", "İngilizce", "Din Kültürü"], key="not_ders")
         konu_girisi = st.text_input("Konu (Örn: Çarpanlar):", key="not_konu")
         
         if st.button("Notu Hazırla 📄"):
@@ -259,30 +255,19 @@ with st.sidebar:
                 if kredi > 0:
                     deduct_credit(st.session_state.username)
                     st.toast("1 Hak kullanıldı", icon="🎫")
-                    
                     with st.spinner(f"{sinif_seviyesi} seviyesinde notlar hazırlanıyor..."):
-                        not_prompt = f"""
-                        ROL: Sen uzman bir {ders_secimi} öğretmenisin.
-                        HEDEF KİTLE: {sinif_seviyesi} öğrencisi.
-                        KONU: {konu_girisi}
-                        
-                        GÖREV: Bu konuyu {sinif_seviyesi} öğrencisinin anlayacağı dilde, sade ve net bir şekilde özetle.
-                        - En önemli tanımları ver.
-                        - Varsa formülleri yaz.
-                        - "Hap Bilgi" başlığı altında kritik ipuçları ver.
-                        - Konuyu uzatma, özet olsun.
-                        """
+                        not_prompt = f"""ROL: {ders_secimi} öğretmeni. HEDEF: {sinif_seviyesi}. KONU: {konu_girisi}. Özetle, formülleri ver, hap bilgi ver."""
                         try:
                             resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": not_prompt}], max_tokens=1000)
-                            not_icerik = resp.choices[0].message.content
-                            st.session_state.ozel_icerik = not_icerik # Ekrana basmak için
-                            st.session_state.icerik_tipi = "Not"
+                            st.session_state.ozel_icerik = resp.choices[0].message.content
+                            st.session_state.icerik_tipi = "Ders Notu"
+                            st.rerun() # Sayfayı yenile ki ana ekranda çıksın
                         except: st.error("Hata")
                 else: st.error("Hakkın bitti!")
-            else: st.warning("Not istemek için üye olmalısın.")
+            else: st.warning("Üye olmalısın.")
 
-    # 2. SORU OLUŞTURUCU
-    with st.expander("📝 Soru Oluştur"):
+    # 2. TEST HAZIRLA (İsim Güncellendi)
+    with st.expander("📝 Test Hazırla"):
         st.caption("Kendini test et!")
         q_sinif = st.selectbox("Sınıf:", ["5", "6", "7", "8", "9", "10", "11", "12"], key="q_sinif")
         q_ders = st.selectbox("Ders:", ["Matematik", "Fen", "Türkçe", "Sosyal"], key="q_ders")
@@ -296,25 +281,16 @@ with st.sidebar:
                 if kredi > 0:
                     deduct_credit(st.session_state.username)
                     st.toast("1 Hak kullanıldı", icon="🎫")
-                    
                     with st.spinner("Soru yazılıyor..."):
-                        soru_prompt = f"""
-                        GÖREV: {q_sinif}. Sınıf {q_ders} dersi için soru yaz.
-                        KONU: {q_konu}
-                        ZORLUK: {q_zorluk}
-                        TİP: {q_tip}
-                        
-                        Lütfen 1 adet kaliteli, yeni nesil veya kazanım odaklı soru yaz.
-                        Altına cevabını ve çözümünü "ÇÖZÜM:" başlığıyla ekle.
-                        """
+                        soru_prompt = f"""GÖREV: {q_sinif}. Sınıf {q_ders} sorusu yaz. KONU: {q_konu}. ZORLUK: {q_zorluk}. TİP: {q_tip}. Cevabı altına 'ÇÖZÜM:' diye ekle."""
                         try:
                             resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": soru_prompt}], max_tokens=1000)
-                            soru_icerik = resp.choices[0].message.content
-                            st.session_state.ozel_icerik = soru_icerik
-                            st.session_state.icerik_tipi = "Soru"
+                            st.session_state.ozel_icerik = resp.choices[0].message.content
+                            st.session_state.icerik_tipi = "Test Sorusu"
+                            st.rerun()
                         except: st.error("Hata")
                 else: st.error("Hakkın bitti!")
-            else: st.warning("Soru yazdırmak için üye olmalısın.")
+            else: st.warning("Üye olmalısın.")
 
     st.divider()
     
@@ -352,130 +328,36 @@ if not st.session_state.logged_in:
                 st.session_state.guest_locked_session = True
         except: pass
 
-# --- ÖZEL İÇERİK GÖSTERİMİ (NOT VEYA SORU) ---
-if "ozel_icerik" in st.session_state and st.session_state.ozel_icerik:
-    st.info(f"📢 **Oluşturulan {st.session_state.icerik_tipi}:**")
+# --- ÖZEL İÇERİK GÖSTERİMİ (NOT/TEST) ---
+# Eğer özel içerik (not/test) varsa onu göster, soru sorma ekranını gizle
+if st.session_state.ozel_icerik:
+    st.info(f"📢 **{st.session_state.icerik_tipi} Hazır:**")
     st.markdown(f"""<div style="background-color:#fff9c4;padding:20px;border-radius:10px;color:#000080;font-size:18px;">{st.session_state.ozel_icerik}</div>""", unsafe_allow_html=True)
     
-    # PDF İNDİR BUTONU (Basit Metin PDF)
-    # Türkçe karakter sorunu olmaması için latin-1'e çevirip basıyoruz
-    # (Not: FPDF'in standart fontları sınırlıdır, bu basit bir çözümdür)
+    # PDF İNDİR
     try:
         pdf_data = create_pdf(f"OdevMatik {st.session_state.icerik_tipi}", st.session_state.ozel_icerik)
         b64_pdf = base64.b64encode(pdf_data).decode('latin-1')
         href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="odevmatik_cikti.pdf"><button style="width:100%;height:50px;border-radius:10px;background-color:#FF5722;color:white;font-weight:bold;border:none;cursor:pointer;">📥 PDF Olarak İndir</button></a>'
         st.markdown(href, unsafe_allow_html=True)
-    except:
-        st.caption("PDF oluşturulurken karakter hatası oluştu ama metni kopyalayabilirsin.")
+    except: st.caption("PDF karakter hatası.")
     
-    st.markdown("---") # Ayırıcı
+    st.markdown("---")
+    if st.button("⬅️ Geri Dön (Ana Ekran)"):
+        st.session_state.ozel_icerik = None
+        st.rerun()
 
-# --- NORMAL SORU ÇÖZME EKRANI (AŞAĞIDA DEVAM EDİYOR) ---
-if st.session_state.son_cevap and not st.session_state.get("ozel_icerik"):
-    st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{st.session_state.son_cevap}</div>""", unsafe_allow_html=True)
-    
-    st.write("")
-    st.markdown("### 📤 Paylaş")
-    paylasim_metni = urllib.parse.quote(f"ÖdevMatik Çözümü:\n\n{st.session_state.son_cevap}\n\n--- ÖdevMatik ile çözüldü.")
-    whatsapp_link = f"https://api.whatsapp.com/send?text={paylasim_metni}"
-    mail_link = f"mailto:?subject=ÖdevMatik Çözümü&body={paylasim_metni}"
-    p_col1, p_col2 = st.columns(2)
-    with p_col1: st.link_button("💬 WhatsApp", whatsapp_link, use_container_width=True)
-    with p_col2: st.link_button("📧 Mail At", mail_link, use_container_width=True)
-    st.divider()
-
-# YENİ SORU ALANI
-if guest_locked and not st.session_state.logged_in:
-    st.warning("⚠️ Misafir hakkını kullandın! Yeni soru için lütfen sağ üstten **Giriş Yap** veya **Kayıt Ol**.")
+# --- NORMAL SORU ÇÖZME EKRANI (Eğer özel içerik yoksa burası çalışır) ---
 else:
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        if st.button("📁 Galeri", use_container_width=True): 
-            st.session_state.aktif_mod = "Galeri"
-            st.session_state.ozel_icerik = None # Özel içeriği temizle
-    with col2:
-        if st.button("📸 Kamera", use_container_width=True): 
-            st.session_state.aktif_mod = "Kamera"
-            st.session_state.ozel_icerik = None
-    with col3:
-        if st.button("⌨️ Yaz", use_container_width=True): 
-            st.session_state.aktif_mod = "Yaz"
-            st.session_state.ozel_icerik = None
-
-    if "aktif_mod" not in st.session_state: st.session_state.aktif_mod = "Galeri"
-
-    st.write("")
-
-    gorsel_veri = None
-    metin_sorusu = None
-    form_tetiklendi = False
-
-    if st.session_state.aktif_mod == "Galeri":
-        st.info("📂 **Galeriden Seç**")
-        yuklenen_dosya = st.file_uploader("", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
-        if yuklenen_dosya:
-            gorsel_veri = yuklenen_dosya.getvalue()
-            if st.button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True): form_tetiklendi = True
-
-    elif st.session_state.aktif_mod == "Kamera":
-        st.info("📸 **Fotoğraf Çek**")
-        cekilen_foto = st.camera_input("Kamerayı aç")
-        if cekilen_foto:
-            gorsel_veri = cekilen_foto.getvalue()
-            if st.button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True): form_tetiklendi = True
-
-    elif st.session_state.aktif_mod == "Yaz":
-        st.info("⌨️ **Soruyu Elle Yaz**")
-        with st.form(key='soru_yazma_formu'):
-            metin_sorusu = st.text_area("", height=150, placeholder="Sorunu buraya yaz...")
-            st.write("")
-            submit_soru = st.form_submit_button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True)
-            if submit_soru and metin_sorusu: form_tetiklendi = True
-
-    if form_tetiklendi:
-        can_proceed = False
-        if st.session_state.logged_in:
-            kredi = get_credit(st.session_state.username)
-            if kredi > 0:
-                deduct_credit(st.session_state.username)
-                st.toast("1 Hak düştü!", icon="🎫")
-                can_proceed = True
-            else:
-                st.error("😔 Hakkın bitti!")
-        else:
-            can_proceed = True
-
-        if can_proceed:
-            with st.spinner(random.choice(["Hoca bakıyor...", "Çözülüyor..."])):
-                try:
-                    ana_prompt = """GÖREV: Soruyu öğrenci gibi çöz. Adım adım git. LaTeX kullanma. Samimi ol."""
-
-                    if gorsel_veri:
-                        secilen_model = "gpt-4o"
-                        base64_image = base64.b64encode(gorsel_veri).decode('utf-8')
-                        messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}]}]
-                    elif metin_sorusu:
-                        secilen_model = "gpt-4o-mini"
-                        messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": f"Soru: {metin_sorusu}"}]
-
-                    response = client.chat.completions.create(model=secilen_model, messages=messages, max_tokens=1000)
-                    cevap = response.choices[0].message.content
-                    
-                    if st.session_state.logged_in:
-                        save_history(st.session_state.username, "Soru", cevap)
-                    
-                    st.session_state.son_cevap = cevap
-                    
-                    if not st.session_state.logged_in:
-                        st.session_state.guest_locked_session = True
-                        try:
-                            cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
-                        except: pass
-                    
-                    st.rerun()
-
-                except Exception as e:
-                    st.error(f"Hata: {e}")
-
-st.divider()
-st.caption("⚠️ **Yasal Uyarı:** Sonuçlar yapay zeka tarafından üretilmiştir ve hatalı olabilir.")
+    # Eski Cevap Varsa Göster
+    if st.session_state.son_cevap:
+        st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{st.session_state.son_cevap}</div>""", unsafe_allow_html=True)
+        st.write("")
+        st.markdown("### 📤 Paylaş")
+        paylasim_metni = urllib.parse.quote(f"ÖdevMatik Çözümü:\n\n{st.session_state.son_cevap}\n\n--- ÖdevMatik ile çözüldü.")
+        whatsapp_link = f"https://api.whatsapp.com/send?text={paylasim_metni}"
+        mail_link = f"mailto:?subject=ÖdevMatik Çözümü&body={paylasim_metni}"
+        p_col1, p_col2 = st.columns(2)
+        with p_col1: st.link_button("💬 WhatsApp", whatsapp_link, use_container_width=True)
+        with p_col2: st.link_button("📧 Mail At", mail_link, use_container_width=True)
+        st.divider
