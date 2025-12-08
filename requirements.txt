@@ -2,3 +2,4 @@ streamlit
 openai
 extra-streamlit-components
 fpdf
+requests
