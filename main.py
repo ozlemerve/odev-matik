@@ -22,8 +22,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v37")
+# --- ÇEREZ YÖNETİCİSİ (HATA VERMEYEN VERSİYON) ---
+cookie_manager = stx.CookieManager(key="auth_mgr_v38")
 
 # --- MÜFREDAT VERİTABANI ---
 MUFREDAT = {
@@ -141,7 +141,7 @@ def save_feedback(username, message):
 
 init_db()
 
-# --- FONT YÖNETİCİSİ ---
+# --- FONT YÖNETİCİSİ (MATEMATİK SEMBOLLERİ İÇİN) ---
 def download_font():
     font_url = "https://github.com/realsung/whiteboard/raw/master/src/fonts/DejaVuSans.ttf"
     if not os.path.exists("DejaVuSans.ttf"):
@@ -156,7 +156,7 @@ def create_pdf_with_math(title, content):
     pdf = FPDF()
     pdf.add_page()
     
-    # Font varsa kullan, yoksa standart
+    # Font varsa kullan (Matematik sembolleri için şart)
     if os.path.exists("DejaVuSans.ttf"):
         pdf.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
         pdf.set_font('DejaVu', '', 14)
@@ -172,6 +172,8 @@ def create_pdf_with_math(title, content):
         pdf.set_font("Arial", size=11)
         
     pdf.multi_cell(0, 7, content)
+    
+    # Binary olarak döndür (Streamlit download_button için)
     return pdf.output(dest='S').encode('latin-1')
 
 # --- E-POSTA ---
@@ -181,7 +183,7 @@ def send_verification_email(to_email, code):
         sender_password = st.secrets["EMAIL_PASSWORD"]
     except: return False
     subject = "ÖdevMatik Doğrulama Kodu"
-    body = f"Kodunuz: {code}\n\nÖdevMatik"
+    body = f"Merhaba,\n\nKodunuz: {code}\n\nÖdevMatik Ekibi"
     msg = MIMEMultipart()
     msg['From'] = f"ÖdevMatik <{sender_email}>"
     msg['To'] = to_email
@@ -292,8 +294,9 @@ with st.sidebar:
         st.rerun()
     st.divider()
 
-    # DERS NOTU
+    # DERS NOTU (MATEMATİK ÖZEL AYARLI)
     with st.expander("📚 Ders Notu Oluştur"):
+        st.caption("Detaylı ve sembollü anlatım!")
         not_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="not_sinif")
         dersler = list(MUFREDAT[not_sinif].keys()) if not_sinif in MUFREDAT else ["Matematik"]
         not_ders = st.selectbox("Ders:", dersler, key="not_ders")
@@ -310,7 +313,8 @@ with st.sidebar:
                         else:
                             not_prompt = f"""SEN BİR DERS KİTABI YAZARISIN. DERS: {not_ders}. SINIF: {not_sinif}. KONU: {not_konu}. DETAYLI ANLAT. 3 ÖRNEK VER."""
                         try:
-                            resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": not_prompt}], max_tokens=2500)
+                            max_tok = 3000 if not_ders == "Matematik" else 2000
+                            resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": not_prompt}], max_tokens=max_tok)
                             st.session_state.ozel_icerik = resp.choices[0].message.content
                             st.session_state.icerik_tipi = "Ders Notu"
                             st.rerun()
@@ -355,24 +359,22 @@ with st.sidebar:
                 update_credit(st.session_state.username, 100); st.success("Yüklendi! Yenile."); time.sleep(1); st.rerun()
 
 # ==========================================
-# ANA EKRAN
+# ANA EKRAN AKIŞI
 # ==========================================
 
 guest_locked = False
 if not st.session_state.logged_in:
-    if st.session_state.guest_locked_session: guest_locked = True
-    else:
-        try:
-            cookies = cookie_manager.get_all()
-            if "guest_used" in cookies: guest_locked = True; st.session_state.guest_locked_session = True
-        except: pass
+    try:
+        cookies = cookie_manager.get_all()
+        if "guest_used" in cookies: guest_locked = True
+    except: pass
 
-# 1. ÖZEL İÇERİK VARSA (PDF BUTONLU)
+# --- 1. ÖZEL İÇERİK (PDF BUTONU VAR) ---
 if st.session_state.ozel_icerik:
     st.info(f"📢 **{st.session_state.icerik_tipi} Hazır:**")
     st.markdown(f"""<div style="background-color:#fff9c4;padding:20px;border-radius:10px;color:#000080;font-size:18px;">{st.session_state.ozel_icerik}</div>""", unsafe_allow_html=True)
     
-    # --- PDF İNDİRME BUTONU BURADA ---
+    # PDF İNDİR BUTONU (BURADA)
     try:
         pdf_bytes = create_pdf_with_math(f"OdevMatik {st.session_state.icerik_tipi}", st.session_state.ozel_icerik)
         st.download_button(
@@ -388,12 +390,12 @@ if st.session_state.ozel_icerik:
     st.markdown("---")
     if st.button("⬅️ Geri Dön (Ana Ekran)"): st.session_state.ozel_icerik = None; st.rerun()
 
-# 2. NORMAL EKRAN
+# --- 2. NORMAL SORU ÇÖZÜMÜ ---
 else:
     if st.session_state.son_cevap:
         st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{st.session_state.son_cevap}</div>""", unsafe_allow_html=True)
         
-        # --- PDF BUTONU (CEVAP İÇİN) ---
+        # PDF İNDİR BUTONU (BURADA DA VAR)
         try:
             pdf_bytes = create_pdf_with_math("OdevMatik Cozum", st.session_state.son_cevap)
             st.download_button(
@@ -401,7 +403,8 @@ else:
                 data=pdf_bytes,
                 file_name="odevmatik_cozum.pdf",
                 mime="application/pdf",
-                use_container_width=True
+                use_container_width=True,
+                type="primary"
             )
         except Exception as e: st.caption(f"PDF Hatası: {e}")
 
@@ -460,7 +463,7 @@ else:
             if can_proceed:
                 with st.spinner(random.choice(["Hoca bakıyor...", "Çözülüyor..."])):
                     try:
-                        ana_prompt = """GÖREV: Soruyu öğrenci gibi çöz. Adım adım git. LaTeX kullanma. Samimi ol. Sembolleri (√, ²) kullan."""
+                        ana_prompt = """GÖREV: Soruyu öğrenci gibi çöz. Adım adım git. LaTeX kullanma. Semimi ol. Sembolleri (√, ²) kullan."""
                         if gorsel_veri:
                             secilen_model = "gpt-4o"
                             base64_image = base64.b64encode(gorsel_veri).decode('utf-8')
