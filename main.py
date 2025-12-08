@@ -21,57 +21,59 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v31")
+cookie_manager = stx.CookieManager(key="auth_mgr_v32")
 
-# --- GÜNCEL MÜFREDAT (MAARİF MODELİ DÜZELTİLDİ) ---
-# 5, 6, 9, 10 Maarif Modeli - Diğerleri Eski Müfredat
+# --- GÜNCEL MEB MÜFREDATI (2024-2025) ---
+# Kaynak: MEB Öğretim Programları
 MUFREDAT = {
-    "5. Sınıf (Maarif)": {
-        "Matematik": ["Doğal Sayılar", "Kesirler", "Ondalık Gösterim", "Yüzdeler", "Temel Geometrik Kavramlar", "Veri İşleme", "Uzunluk ve Zaman Ölçme"],
-        "Fen Bilimleri": ["Gökyüzündeki Komşularımız", "Canlılar Dünyası", "Kuvvetin Büyüklüğünün Ölçülmesi", "Madde ve Değişim", "Işığın Yayılması", "İnsan ve Çevre", "Elektrik Devre Elemanları"],
-        "Türkçe": ["Erdemler", "Milli Kültür", "Bilim ve Teknoloji", "Birey ve Toplum", "Okuma Kültürü"],
-        "Sosyal Bilgiler": ["Birey ve Toplum", "Kültür ve Miras", "İnsanlar, Yerler ve Çevreler", "Bilim, Teknoloji ve Toplum", "Üretim, Dağıtım ve Tüketim"]
+    "5. Sınıf (Maarif Modeli)": {
+        "Matematik": ["Doğal Sayılar", "Doğal Sayılarla İşlemler", "Kesirler", "Ondalık Gösterim", "Yüzdeler", "Temel Geometrik Kavramlar ve Çizimler", "Üçgenler ve Dörtgenler", "Veri Toplama ve Değerlendirme", "Uzunluk ve Zaman Ölçme", "Alan Ölçme", "Geometrik Cisimler"],
+        "Fen Bilimleri": ["Güneş, Dünya ve Ay", "Canlılar Dünyası", "Kuvvetin Ölçülmesi ve Sürtünme", "Madde ve Değişim", "Işığın Yayılması", "İnsan ve Çevre", "Elektrik Devre Elemanları"],
+        "Türkçe": ["Erdemler", "Milli Kültürümüz", "Bilim ve Teknoloji", "Birey ve Toplum", "Doğa ve Evren", "Sanat", "Sağlık ve Spor", "Çocuk Dünyası"],
+        "Sosyal Bilgiler": ["Birey ve Toplum", "Kültür ve Miras", "İnsanlar, Yerler ve Çevreler", "Bilim, Teknoloji ve Toplum", "Üretim, Dağıtım ve Tüketim", "Etkin Vatandaşlık", "Küresel Bağlantılar"]
     },
-    "6. Sınıf (Maarif)": {
-        "Matematik": ["Doğal Sayılarla İşlemler", "Çarpanlar ve Katlar", "Kümeler", "Tam Sayılar", "Kesirlerle İşlemler", "Ondalık Gösterim", "Oran", "Cebirsel İfadeler", "Veri Analizi", "Açılar", "Alan Ölçme", "Çember", "Geometrik Cisimler"],
-        "Fen Bilimleri": ["Güneş Sistemi ve Tutulmalar", "Vücudumuzdaki Sistemler", "Kuvvet ve Hareket", "Madde ve Isı", "Ses ve Özellikleri", "Denetleyici ve Düzenleyici Sistemler"],
-        "Türkçe": ["Sözcükte Anlam", "Cümlede Anlam", "Paragraf", "İsim-Sıfat-Zamir", "Yazım Kuralları"],
-        "Sosyal Bilgiler": ["Biz ve Değerlerimiz", "Tarihe Yolculuk", "Yeryüzünde Yaşam", "Bilim ve Teknoloji", "Üretiyorum, Tüketiyorum"]
+    "6. Sınıf": {
+        "Matematik": ["Doğal Sayılarla İşlemler", "Çarpanlar ve Katlar", "Kümeler", "Tam Sayılar", "Kesirlerle İşlemler", "Ondalık Gösterim", "Oran", "Cebirsel İfadeler", "Veri Analizi", "Açılar", "Alan Ölçme", "Çember", "Geometrik Cisimler", "Sıvı Ölçme"],
+        "Fen Bilimleri": ["Güneş Sistemi ve Tutulmalar", "Vücudumuzdaki Sistemler", "Kuvvet ve Hareket", "Madde ve Isı", "Ses ve Özellikleri", "Vücudumuzdaki Sistemler ve Sağlığı", "Elektriğin İletimi"],
+        "Türkçe": ["Okuma Kültürü", "Milli Mücadele ve Atatürk", "Bilim ve Teknoloji", "Erdemler", "Doğa ve Evren", "Sanat", "Kişisel Gelişim"],
+        "Sosyal Bilgiler": ["Biz ve Değerlerimiz", "Tarihe Yolculuk", "Yeryüzünde Yaşam", "Bilim ve Teknoloji Hayatımızda", "Üretiyorum, Tüketiyorum, Bilinçliyim", "Yönetime Katılıyorum", "Uluslararası İlişkilerimiz"]
     },
     "7. Sınıf": {
-        "Matematik": ["Tam Sayılar", "Rasyonel Sayılar", "Cebirsel İfadeler", "Eşitlik ve Denklem", "Oran ve Orantı", "Yüzdeler", "Doğrular ve Açılar", "Çokgenler", "Çember ve Daire", "Veri Analizi"],
-        "Fen Bilimleri": ["Güneş Sistemi", "Hücre ve Bölünmeler", "Kuvvet ve Enerji", "Saf Madde ve Karışımlar", "Işığın Madde ile Etkileşimi", "Canlılarda Üreme"],
-        "Türkçe": ["Fiiller", "Zarflar", "Ek Fiil", "Anlatım Bozuklukları", "Metin Türleri"],
-        "Sosyal Bilgiler": ["İletişim ve İnsan", "Türk Tarihinde Yolculuk", "Ülkemizde Nüfus", "Zaman İçinde Bilim", "Ekonomi ve Sosyal Hayat"]
+        "Matematik": ["Tam Sayılarla İşlemler", "Rasyonel Sayılar", "Rasyonel Sayılarla İşlemler", "Cebirsel İfadeler", "Eşitlik ve Denklem", "Oran ve Orantı", "Yüzdeler", "Doğrular ve Açılar", "Çokgenler", "Çember ve Daire", "Veri Analizi"],
+        "Fen Bilimleri": ["Güneş Sistemi ve Ötesi", "Hücre ve Bölünmeler", "Kuvvet ve Enerji", "Saf Madde ve Karışımlar", "Işığın Madde ile Etkileşimi", "Canlılarda Üreme, Büyüme ve Gelişme", "Elektrik Devreleri"],
+        "Türkçe": ["Erdemler", "Milli Kültürümüz", "Bilim ve Teknoloji", "Kişisel Gelişim", "Milli Mücadele ve Atatürk", "Sanat", "Doğa ve Evren", "Vatandaşlık"],
+        "Sosyal Bilgiler": ["İletişim ve İnsan İlişkileri", "Türk Tarihinde Yolculuk", "Ülkemizde Nüfus", "Zaman İçinde Bilim", "Ekonomi ve Sosyal Hayat", "Yaşayan Demokrasi", "Ülkeler Arası Köprüler"]
     },
     "8. Sınıf (LGS)": {
         "Matematik": ["Çarpanlar ve Katlar", "Üslü İfadeler", "Kareköklü İfadeler", "Veri Analizi", "Basit Olayların Olma Olasılığı", "Cebirsel İfadeler ve Özdeşlikler", "Doğrusal Denklemler", "Eşitsizlikler", "Üçgenler", "Eşlik ve Benzerlik", "Dönüşüm Geometrisi", "Geometrik Cisimler"],
-        "Fen Bilimleri": ["Mevsimler ve İklim", "DNA ve Genetik Kod", "Basınç", "Madde ve Endüstri", "Basit Makineler", "Enerji Dönüşümleri", "Elektrik Yükleri"],
-        "Türkçe": ["Fiilimsiler", "Cümlenin Ögeleri", "Fiilde Çatı", "Cümle Türleri", "Yazım ve Noktalama", "Sözel Mantık"],
-        "İnkılap Tarihi": ["Bir Kahraman Doğuyor", "Milli Uyanış", "Ya İstiklal Ya Ölüm", "Atatürkçülük", "Demokratikleşme Çabaları", "Dış Politika"]
+        "Fen Bilimleri": ["Mevsimler ve İklim", "DNA ve Genetik Kod", "Basınç", "Madde ve Endüstri", "Basit Makineler", "Enerji Dönüşümleri ve Çevre Bilimi", "Elektrik Yükleri ve Elektrik Enerjisi"],
+        "Türkçe": ["Fiilimsiler", "Cümlenin Ögeleri", "Fiilde Çatı", "Cümle Türleri", "Yazım ve Noktalama", "Sözel Mantık ve Muhakeme", "Metin Türleri"],
+        "İnkılap Tarihi": ["Bir Kahraman Doğuyor", "Milli Uyanış: Bağımsızlık Yolunda Atılan Adımlar", "Ya İstiklal Ya Ölüm!", "Atatürkçülük ve Çağdaşlaşan Türkiye", "Demokratikleşme Çabaları", "Atatürk Dönemi Türk Dış Politikası", "Atatürk'ün Ölümü ve Sonrası"]
     },
-    "9. Sınıf (Maarif)": {
-        "Matematik": ["Mantık", "Kümeler", "Sayı Kümeleri ve Bölünebilme", "Denklem ve Eşitsizlikler", "Üçgenler", "Veri"],
+    "9. Sınıf (Maarif Modeli)": {
+        "Matematik": ["Mantık", "Kümeler", "Denklemler ve Eşitsizlikler", "Üçgenler", "Veri"],
         "Fizik": ["Fizik Bilimine Giriş", "Madde ve Özellikleri", "Hareket ve Kuvvet", "Enerji", "Isı ve Sıcaklık", "Elektrostatik"],
         "Kimya": ["Kimya Bilimi", "Atom ve Periyodik Sistem", "Kimyasal Türler Arası Etkileşimler", "Maddenin Halleri", "Doğa ve Kimya"],
-        "Biyoloji": ["Yaşam Bilimi Biyoloji", "Hücre", "Canlılar Dünyası"]
+        "Biyoloji": ["Yaşam Bilimi Biyoloji", "Hücre", "Canlılar Dünyası"],
+        "Tarih": ["Tarih ve Zaman", "İnsanlığın İlk Dönemleri", "Orta Çağ'da Dünya", "İlk ve Orta Çağlarda Türk Dünyası", "İslam Medeniyetinin Doğuşu", "Türklerin İslamiyet'i Kabulü ve İlk Türk İslam Devletleri"],
+        "Coğrafya": ["Doğa ve İnsan", "Dünya'nın Şekli ve Hareketleri", "Coğrafi Konum", "Harita Bilgisi", "İklim Bilgisi", "Yerleşme"]
     },
-    "10. Sınıf (Maarif)": {
+    "10. Sınıf": {
         "Matematik": ["Sayma ve Olasılık", "Fonksiyonlar", "Polinomlar", "İkinci Dereceden Denklemler", "Dörtgenler ve Çokgenler", "Katı Cisimler"],
         "Fizik": ["Elektrik ve Manyetizma", "Basınç ve Kaldırma Kuvveti", "Dalgalar", "Optik"],
-        "Kimya": ["Kimyanın Temel Kanunları", "Karışımlar", "Asitler, Bazlar ve Tuzlar", "Kimya Her Yerde"],
-        "Biyoloji": ["Hücre Bölünmeleri", "Kalıtım", "Ekosistem Ekolojisi"]
+        "Kimya": ["Kimyanın Temel Kanunları ve Kimyasal Hesaplamalar", "Karışımlar", "Asitler, Bazlar ve Tuzlar", "Kimya Her Yerde"],
+        "Biyoloji": ["Hücre Bölünmeleri", "Kalıtımın Genel İlkeleri", "Ekosistem Ekolojisi ve Güncel Çevre Sorunları"]
     },
-    "11. Sınıf": {
+    "11. Sınıf (Sayısal/EA)": {
         "Matematik": ["Trigonometri", "Analitik Geometri", "Fonksiyonlarda Uygulamalar", "Denklem ve Eşitsizlik Sistemleri", "Çember ve Daire", "Uzay Geometri", "Olasılık"],
         "Fizik": ["Kuvvet ve Hareket", "Elektrik ve Manyetizma"],
-        "Kimya": ["Modern Atom Teorisi", "Gazlar", "Sıvı Çözeltiler", "Kimyasal Tepkimelerde Enerji", "Kimyasal Tepkimelerde Hız ve Denge"],
+        "Kimya": ["Modern Atom Teorisi", "Gazlar", "Sıvı Çözeltiler ve Çözünürlük", "Kimyasal Tepkimelerde Enerji", "Kimyasal Tepkimelerde Hız", "Kimyasal Tepkimelerde Denge"],
         "Biyoloji": ["İnsan Fizyolojisi", "Komünite ve Popülasyon Ekolojisi"]
     },
     "12. Sınıf (YKS)": {
         "Matematik": ["Üstel ve Logaritmik Fonksiyonlar", "Diziler", "Trigonometri", "Dönüşümler", "Türev", "İntegral", "Çemberin Analitiği"],
-        "Fizik": ["Çembersel Hareket", "Basit Harmonik Hareket", "Dalga Mekaniği", "Atom Fiziği", "Modern Fizik"],
-        "Kimya": ["Kimya ve Elektrik", "Karbon Kimyasına Giriş", "Organik Bileşikler", "Enerji Kaynakları"],
+        "Fizik": ["Çembersel Hareket", "Basit Harmonik Hareket", "Dalga Mekaniği", "Atom Fiziğine Giriş ve Radyoaktivite", "Modern Fizik", "Modern Fiziğin Teknolojideki Uygulamaları"],
+        "Kimya": ["Kimya ve Elektrik", "Karbon Kimyasına Giriş", "Organik Bileşikler", "Enerji Kaynakları ve Bilimsel Gelişmeler"],
         "Biyoloji": ["Genden Proteine", "Canlılarda Enerji Dönüşümleri", "Bitki Biyolojisi", "Canlılar ve Çevre"]
     }
 }
@@ -154,39 +156,37 @@ def save_feedback(username, message):
 
 init_db()
 
-# --- PDF TEMİZLEYİCİ (MATEMATİK SEMBOLLERİNİ ÇEVİRİR) ---
+# --- PDF TEMİZLEYİCİ VE OLUŞTURUCU (GELİŞMİŞ) ---
 def clean_text_for_pdf(text):
-    # Türkçe ve Matematik Karakter Haritası (PDF'de ? çıkmaması için)
+    # Türkçe karakterler ve Matematik sembolleri için GENİŞLETİLMİŞ harita
     replacements = {
+        # Türkçe
         'ğ': 'g', 'Ğ': 'G', 'ş': 's', 'Ş': 'S', 'ı': 'i', 'İ': 'I', 'ç': 'c', 'Ç': 'C', 'ö': 'o', 'Ö': 'O', 'ü': 'u', 'Ü': 'U',
-        # Matematik Sembolleri -> Okunabilir Metin
-        '√': 'kok', 
-        '²': '^2', 
-        '³': '^3', 
+        # Matematik
+        '√': 'kok', '∛': 'kupkok',
+        '²': '^2', '³': '^3', '⁰': '^0', '¹': '^1',
         'π': 'pi', 
         '∞': 'sonsuz', 
         '≠': 'esit degil', 
-        '≤': '<=', 
-        '≥': '>=',
-        '×': 'x',
-        '÷': '/',
-        '±': '+/-',
-        '≈': 'yaklasik',
-        '∫': 'integral',
-        '∑': 'toplam',
-        '∆': 'delta',
-        '∠': 'aci',
-        '⊥': 'dik',
-        '°': ' derece',
+        '≤': '<=', '≥': '>=',
+        '×': 'x', '·': '*', '÷': '/',
+        '±': '+/-', '≈': 'yaklasik',
+        '∫': 'integral', '∑': 'toplam', '∆': 'delta',
+        '∠': 'aci', '⊥': 'dik', '°': ' derece',
+        '∈': 'elemanidir', '∉': 'elemani degildir',
+        '⊂': 'alt kume', '⊃': 'kapsar',
+        '∪': 'birlesim', '∩': 'kesisim',
+        '⇒': 'ise', '⇔': 'ancak ve ancak',
+        '∀': 'her', '∃': 'bazi'
     }
     
-    # Basit temizlik
+    # Markdown temizliği
     text = text.replace('**', '').replace('__', '').replace('###', '').replace('##', '').replace('#', '')
     
     for search, replace in replacements.items():
         text = text.replace(search, replace)
     
-    # ASCII dışı karakterleri temizle
+    # ASCII dışı karakterleri temizle (PDF çökmesin diye)
     return text.encode('latin-1', 'replace').decode('latin-1')
 
 def create_pdf(title, content):
@@ -194,15 +194,13 @@ def create_pdf(title, content):
     pdf.add_page()
     pdf.set_font("Arial", 'B', 16)
     
-    # Başlık
     safe_title = clean_text_for_pdf(title)
     pdf.cell(0, 10, safe_title, ln=True, align='C')
     pdf.ln(10)
     
-    # İçerik
     pdf.set_font("Arial", size=11)
     safe_content = clean_text_for_pdf(content)
-    pdf.multi_cell(0, 7, safe_content) # Satır aralığını 7 yaptık daha sıkı görünsün
+    pdf.multi_cell(0, 7, safe_content)
         
     return pdf.output(dest='S').encode('latin-1')
 
@@ -326,7 +324,6 @@ st.divider()
 with st.sidebar:
     st.title("🗂️ Menü")
     
-    # ANA EKRAN TUŞU
     if st.button("🏠 Ana Ekran (Soru Çöz)", use_container_width=True):
         st.session_state.ozel_icerik = None
         st.session_state.son_cevap = None
@@ -334,7 +331,7 @@ with st.sidebar:
     
     st.divider()
 
-    # 1. DERS NOTU (AKADEMİK & DETAYLI)
+    # 1. DERS NOTU
     with st.expander("📚 Ders Notu Oluştur"):
         st.caption("Sınıfına uygun, detaylı özet!")
         not_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="not_sinif")
@@ -360,17 +357,15 @@ with st.sidebar:
                         GÖREVİN: Bu konuyu bir DERS KİTABI gibi detaylıca anlatmak.
                         
                         KURALLAR:
-                        1. ASLA "Merhaba çocuklar", "Bugün şunu işleyeceğiz" gibi sohbet ifadeleri KULLANMA. Direkt konuya gir.
-                        2. Başlıklar ve Alt Başlıklar kullan (Örn: 1. Tanım, 2. Özellikler).
-                        3. Konunun mantığını, ispatını ve nedenlerini anlat.
+                        1. ASLA "Merhaba çocuklar" gibi giriş yapma. Direkt "1. Bölüm: [Konu Adı]" diye başla.
+                        2. Konuyu en az 3 ana başlığa ayır.
+                        3. Mutlaka "Tanım", "Özellikler", "İspat/Mantık" kısımları olsun.
                         4. EN AZ 3 ADET "Çözümlü Örnek" ekle. Örnekler basitten zora gitsin. Çözümler adım adım olsun.
-                        5. "Sınav Notu" veya "Dikkat" kutucukları oluştur.
-                        6. Matematiksel ifadeleri düzgün yaz.
-                        7. İçerik EN AZ 600 kelime olsun, yüzeysel geçme.
+                        5. Formülleri belirgin yaz.
+                        6. İçerik EN AZ 800 kelime olsun. Kısa özet istemiyorum, detaylı ders anlatımı istiyorum.
                         """
                         try:
-                            # Notlar uzun olacağı için token limitini artırdım
-                            resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": not_prompt}], max_tokens=2000)
+                            resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": not_prompt}], max_tokens=2500)
                             st.session_state.ozel_icerik = resp.choices[0].message.content
                             st.session_state.icerik_tipi = "Ders Notu"
                             st.rerun()
@@ -453,7 +448,7 @@ if st.session_state.ozel_icerik:
         href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="odevmatik_cikti.pdf"><button style="width:100%;height:50px;border-radius:10px;background-color:#FF5722;color:white;font-weight:bold;border:none;cursor:pointer;">📥 PDF Olarak İndir</button></a>'
         st.markdown(href, unsafe_allow_html=True)
     except Exception as e:
-        st.caption(f"PDF Oluşturulamadı: {e}")
+        st.caption(f"PDF oluşturulamadı: {e}")
     
     st.markdown("---")
     if st.button("⬅️ Geri Dön (Ana Ekran)"):
