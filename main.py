@@ -23,38 +23,18 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v41")
+cookie_manager = stx.CookieManager(key="auth_mgr_v42")
 
 # --- MÜFREDAT VERİTABANI ---
 MUFREDAT = {
-    "5. Sınıf (Maarif)": {
-        "Matematik": ["Doğal Sayılar", "Kesirler", "Ondalık Gösterim", "Yüzdeler", "Geometrik Cisimler"],
-        "Fen": ["Güneş, Dünya, Ay", "Canlılar", "Kuvvet", "Madde", "Işık", "Elektrik"],
-        "Türkçe": ["Okuma Kültürü", "Erdemler", "Bilim", "Milli Kültür"],
-        "Sosyal": ["Birey ve Toplum", "Kültür", "Yeryüzü", "Bilim", "Ekonomi"]
-    },
-    "6. Sınıf (Maarif)": {
-        "Matematik": ["Doğal Sayılar", "Çarpanlar", "Kümeler", "Tam Sayılar", "Kesirler", "Ondalık", "Oran", "Cebir", "Veri", "Açılar"],
-        "Fen": ["Güneş Sistemi", "Vücudumuz", "Kuvvet", "Madde", "Ses", "Elektrik"],
-        "Türkçe": ["Duygular", "Doğa", "Milli Mücadele", "Bilim", "Sanat"],
-        "Sosyal": ["Değerlerimiz", "Tarih", "Coğrafya", "Bilim", "Ekonomi", "Yönetim"]
-    },
-    "7. Sınıf": {
-        "Matematik": ["Tam Sayılar", "Rasyonel Sayılar", "Cebirsel", "Denklem", "Oran-Orantı", "Yüzdeler", "Doğrular", "Çokgenler", "Çember"],
-        "Fen": ["Uzay", "Hücre", "Kuvvet-Enerji", "Madde", "Işık", "Canlılar", "Elektrik"],
-        "Türkçe": ["Erdemler", "Milli Kültür", "Kişisel Gelişim", "Sanat"],
-        "Sosyal": ["İletişim", "Tarih", "Nüfus", "Bilim", "Ekonomi"]
-    },
-    "8. Sınıf (LGS)": {
-        "Matematik": ["Çarpanlar Katlar", "Üslü Sayılar", "Kareköklü İfadeler", "Veri Analizi", "Olasılık", "Cebirsel", "Denklem", "Eşitsizlik", "Üçgenler", "Dönüşüm", "Cisimler"],
-        "Fen": ["Mevsimler", "DNA", "Basınç", "Madde", "Basit Makineler", "Enerji", "Elektrik"],
-        "Türkçe": ["Fiilimsiler", "Cümle Ögeleri", "Çatı", "Cümle Türleri", "Yazım", "Mantık"],
-        "İnkılap": ["Bir Kahraman Doğuyor", "Milli Uyanış", "Ya İstiklal", "Atatürkçülük", "Demokratikleşme", "Dış Politika"]
-    },
-    "9. Sınıf": { "Matematik": ["Mantık", "Kümeler", "Denklemler", "Üçgenler", "Veri"], "Fizik": ["Madde", "Kuvvet"]},
-    "10. Sınıf": { "Matematik": ["Sayma", "Fonksiyon"], "Fizik": ["Elektrik", "Dalga"]},
-    "11. Sınıf": { "Matematik": ["Trigonometri", "Analitik"], "Fizik": ["Kuvvet", "Elektrik"]},
-    "12. Sınıf": { "Matematik": ["Logaritma", "Türev", "İntegral"], "Fizik": ["Çembersel", "Modern Fizik"]}
+    "5. Sınıf (Maarif)": {"Matematik": ["Doğal Sayılar", "Kesirler"], "Fen": ["Güneş", "Canlılar"]},
+    "6. Sınıf (Maarif)": {"Matematik": ["Doğal Sayılar", "Çarpanlar", "Kümeler"], "Fen": ["Güneş Sistemi", "Vücudumuz"]},
+    "7. Sınıf": {"Matematik": ["Tam Sayılar", "Rasyonel Sayılar"], "Fen": ["Uzay", "Hücre"]},
+    "8. Sınıf (LGS)": {"Matematik": ["Çarpanlar Katlar", "Üslü İfadeler", "Kareköklü İfadeler", "Veri Analizi", "Olasılık", "Cebirsel", "Denklem"], "Fen": ["Mevsimler", "DNA"]},
+    "9. Sınıf": {"Matematik": ["Mantık", "Kümeler", "Denklemler"], "Fizik": ["Madde", "Kuvvet"]},
+    "10. Sınıf": {"Matematik": ["Sayma", "Fonksiyon"], "Fizik": ["Elektrik", "Dalga"]},
+    "11. Sınıf": {"Matematik": ["Trigonometri", "Analitik"], "Fizik": ["Kuvvet", "Elektrik"]},
+    "12. Sınıf": {"Matematik": ["Logaritma", "Türev", "İntegral"], "Fizik": ["Çembersel", "Modern Fizik"]}
 }
 
 # --- VERİTABANI ---
@@ -305,7 +285,7 @@ with st.sidebar:
         st.rerun()
     st.divider()
 
-    # DERS NOTU (GÜÇLENDİRİLMİŞ PROMPT)
+    # 1. DERS NOTU (MATEMATİK 15 SORU MODU)
     with st.expander("📚 Ders Notu Oluştur"):
         st.caption("Detaylı ve sembollü anlatım!")
         not_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="not_sinif")
@@ -319,29 +299,13 @@ with st.sidebar:
                 if get_credit(st.session_state.username) > 0:
                     deduct_credit(st.session_state.username); st.toast("1 Hak kullanıldı", icon="🎫")
                     with st.spinner("Hazırlanıyor..."):
-                        # --- ZORLUK AYARLI PROMPT ---
                         if not_ders == "Matematik":
-                            not_prompt = f"""
-                            SEN ACIMASIZ VE DETAYCI BİR MATEMATİK PROFESÖRÜSÜN.
-                            DERS: Matematik. SINIF: {not_sinif}. KONU: {not_konu}.
-                            
-                            GÖREVLER:
-                            1. Konuyu en ince detayına kadar, ispatlarıyla anlat. (En az 1000 Kelime)
-                            2. EN AZ 15 ÇÖZÜMLÜ ÖRNEK EKLE.
-                            3. Önemli: İlk 5 örnek 'Kazanım Kavrama' (Kolay) olsun.
-                            4. Sonraki 5 örnek 'Orta Seviye' olsun.
-                            5. SON 5 ÖRNEK 'YENİ NESİL / BECERİ TEMELLİ / ZOR' olsun. Öğrenciyi terletsin.
-                            6. Sembolleri (√, ², π, ∫) DOĞRUDAN kullan.
-                            """
+                            not_prompt = f"""SEN BİR MATEMATİK DERS KİTABI YAZARISIN. SINIF: {not_sinif}. KONU: {not_konu}.
+                            GÖREV: Detaylı anlat. EN AZ 1100 KELİME. EN AZ 15 ÖRNEK ÇÖZ.
+                            Sembolleri (√, ², π, ∫) DOĞRUDAN kullan. Asla LaTeX kullanma."""
                         else:
-                            not_prompt = f"""
-                            SEN BİR DERS KİTABI YAZARISIN. DERS: {not_ders}. SINIF: {not_sinif}. KONU: {not_konu}.
-                            GÖREVLER:
-                            1. Konuyu akademik ve detaylı anlat.
-                            2. En az 800 kelime olsun.
-                            3. En az 3 tane çözümlü/açıklamalı örnek ver.
-                            """
-                            
+                            not_prompt = f"""SEN BİR DERS KİTABI YAZARISIN. DERS: {not_ders}. SINIF: {not_sinif}. KONU: {not_konu}.
+                            GÖREV: Detaylı anlat. 3 ÖRNEK VER."""
                         try:
                             max_tok = 3000 if not_ders == "Matematik" else 2000
                             resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": not_prompt}], max_tokens=max_tok)
@@ -352,7 +316,7 @@ with st.sidebar:
                 else: st.error("Hakkın bitti!")
             else: st.warning("Üye olmalısın.")
 
-    # TEST HAZIRLA
+    # 2. TEST HAZIRLA (PROBLEM MODU)
     with st.expander("📝 Test Hazırla"):
         q_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="q_sinif")
         q_dersler = list(MUFREDAT[q_sinif].keys()) if q_sinif in MUFREDAT else ["Matematik"]
@@ -365,7 +329,18 @@ with st.sidebar:
                 if get_credit(st.session_state.username) > 0:
                     deduct_credit(st.session_state.username); st.toast("1 Hak kullanıldı", icon="🎫")
                     with st.spinner("Yazılıyor..."):
-                        soru_prompt = f"""GÖREV: {q_sinif} {q_ders} "{q_konu}" {q_zorluk} soru yaz. SEMBOLLERİ (√, ², π) KULLAN. Cevabı altına 'ÇÖZÜM:' diye ekle."""
+                        # --- PROBLEM ODAKLI PROMPT ---
+                        soru_prompt = f"""
+                        GÖREV: {q_sinif} seviyesi {q_ders} dersi "{q_konu}" konusu. {q_zorluk} seviyesinde 1 adet SORU yaz.
+                        
+                        DİKKAT:
+                        1. Sadece "işlem sorusu" sorma! (Örn: 2+2=? deme).
+                        2. HİKAYELEŞTİRİLMİŞ, MANTIK MUHAKEME gerektiren, GÜNLÜK HAYATLA İLİŞKİLİ bir PROBLEM sor.
+                        3. "Beceri Temelli" ifadesini kullanma. Sadece soru metnini yaz.
+                        4. Başlık olarak: **[ Seviye: {q_zorluk} ]** yaz.
+                        5. Altına 'ÇÖZÜM:' başlığıyla detaylı çözümü ekle.
+                        6. Sembolleri (√, ², π) doğrudan kullan.
+                        """
                         try:
                             resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": soru_prompt}], max_tokens=1000)
                             st.session_state.ozel_icerik = resp.choices[0].message.content
@@ -389,7 +364,7 @@ with st.sidebar:
                 update_credit(st.session_state.username, 100); st.success("Yüklendi! Yenile."); time.sleep(1); st.rerun()
 
 # ==========================================
-# ANA EKRAN
+# ANA EKRAN AKIŞI
 # ==========================================
 
 guest_locked = False
@@ -404,7 +379,7 @@ if st.session_state.ozel_icerik:
     st.info(f"📢 **{st.session_state.icerik_tipi} Hazır:**")
     st.markdown(f"""<div style="background-color:#fff9c4;padding:20px;border-radius:10px;color:#000080;font-size:18px;">{st.session_state.ozel_icerik}</div>""", unsafe_allow_html=True)
     
-    # PDF OLUŞTURMA (HATA KORUMALI)
+    # PDF OLUŞTURMA
     try:
         pdf_bytes = create_safe_pdf(f"OdevMatik {st.session_state.icerik_tipi}", st.session_state.ozel_icerik)
         st.download_button(
@@ -426,7 +401,6 @@ else:
     if st.session_state.son_cevap:
         st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{st.session_state.son_cevap}</div>""", unsafe_allow_html=True)
         
-        # PDF BUTONU
         try:
             pdf_bytes = create_safe_pdf("OdevMatik Cozum", st.session_state.son_cevap)
             st.download_button(
@@ -434,7 +408,8 @@ else:
                 data=pdf_bytes,
                 file_name="odevmatik_cozum.pdf",
                 mime="application/pdf",
-                use_container_width=True
+                use_container_width=True,
+                type="primary"
             )
         except: pass
 
