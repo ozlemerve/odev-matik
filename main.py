@@ -19,7 +19,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- ÇEREZ YÖNETİCİSİ (CACHE KALDIRILDI - SORUNSUZ) ---
+# --- ÇEREZ YÖNETİCİSİ ---
 cookie_manager = stx.CookieManager(key="main_auth")
 
 # --- VERİTABANI ---
@@ -139,17 +139,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- OTURUM BAŞLATMA ---
+# --- OTURUM ---
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
 
-# --- GECİKMELİ ÇEREZ KONTROLÜ (OTURUM KURTARICI) ---
-time.sleep(0.3)
+# --- ÇEREZ KONTROLÜ ---
+time.sleep(0.1)
 try:
     cookies = cookie_manager.get_all()
     user_token = cookies.get("user_token")
+    # Eğer giriş çerezi varsa otomatik giriş yap
     if user_token and not st.session_state.logged_in:
         st.session_state.logged_in = True
         st.session_state.username = user_token
@@ -166,7 +167,7 @@ else:
 client = OpenAI(api_key=api_key)
 
 # ==========================================
-# ÜST BAR (GİRİŞ EKRANI)
+# ÜST BAR
 # ==========================================
 col_logo, col_auth = st.columns([2, 1])
 
@@ -186,7 +187,6 @@ with col_auth:
                         if login_user(l_user, l_pass):
                             st.session_state.logged_in = True
                             st.session_state.username = l_user
-                            # Çerez Kaydet (30 Gün)
                             cookie_manager.set("user_token", l_user, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             st.rerun()
                         else: st.error("Hatalı!")
@@ -261,7 +261,6 @@ with st.sidebar:
             st.session_state.logged_in = False
             st.session_state.username = "Misafir"
             cookie_manager.delete("user_token")
-            time.sleep(0.5)
             st.rerun()
 
     else:
@@ -281,11 +280,12 @@ with st.sidebar:
 guest_locked = False
 try:
     cookies = cookie_manager.get_all()
+    # Eğer giriş yapmamışsa ve misafir çerezi varsa kilitle
     if not st.session_state.logged_in and "guest_used" in cookies:
         guest_locked = True
 except: pass
 
-# --- SONUÇ GÖSTERİMİ ---
+# --- SONUÇ GÖSTERİMİ (ÖNCELİKLİ) ---
 if st.session_state.son_cevap:
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{st.session_state.son_cevap}</div>""", unsafe_allow_html=True)
     
@@ -299,9 +299,10 @@ if st.session_state.son_cevap:
     with p_col2: st.link_button("📧 Mail At", mail_link, use_container_width=True)
     st.divider()
 
-# --- YENİ SORU ALANI ---
+# --- YENİ SORU ALANI (KİLİT KONTROLÜ) ---
+# Eğer misafir hakkı bitmişse ve cevap yoksa uyarı göster
 if guest_locked and not st.session_state.logged_in:
-    st.warning("⚠️ Misafir hakkını kullandın! Devam etmek için lütfen sağ üstten **Giriş Yap** veya **Kayıt Ol**.")
+    st.warning("⚠️ Misafir hakkını kullandın! Yeni soru için lütfen sağ üstten **Giriş Yap** veya **Kayıt Ol**.")
 else:
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -344,6 +345,8 @@ else:
     # --- ÇÖZÜM MOTORU ---
     if form_tetiklendi:
         can_proceed = False
+        
+        # 1. KREDİ KONTROLÜ (ÜYE)
         if st.session_state.logged_in:
             kredi = get_credit(st.session_state.username)
             if kredi > 0:
@@ -352,12 +355,9 @@ else:
                 can_proceed = True
             else:
                 st.error("😔 Hakkın bitti!")
+        # 2. MİSAFİR MODU (DİKKAT: Çerez burada atılmayacak)
         else:
-            try:
-                cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
-                st.toast("Misafir hakkın kullanıldı!", icon="🎁")
-                can_proceed = True
-            except: pass
+            can_proceed = True
 
         if can_proceed:
             with st.spinner(random.choice(["Hoca bakıyor...", "Çözülüyor..."])):
@@ -378,7 +378,16 @@ else:
                     if st.session_state.logged_in:
                         save_history(st.session_state.username, "Soru", cevap)
                     
+                    # CEVABI HAFIZAYA AL
                     st.session_state.son_cevap = cevap
+                    
+                    # 🚀 İŞTE ÇÖZÜM: MİSAFİR İSE ÇEREZİ ŞİMDİ AT
+                    if not st.session_state.logged_in:
+                        try:
+                            cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
+                        except: pass
+                    
+                    # SAYFAYI YENİLE (Cevap ve Kilit aynı anda gelsin)
                     st.rerun()
 
                 except Exception as e:
