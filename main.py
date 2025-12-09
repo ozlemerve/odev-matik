@@ -13,6 +13,7 @@ import datetime
 from fpdf import FPDF
 import requests
 import os
+import re
 
 # --- AYARLAR ---
 st.set_page_config(
@@ -23,7 +24,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v55")
+cookie_manager = stx.CookieManager(key="auth_mgr_v56")
 
 # --- VERİTABANI ---
 def init_db():
@@ -112,23 +113,36 @@ def save_feedback(username, message):
 
 init_db()
 
-# --- PDF MOTORU ---
-def clean_text_for_pdf(text):
-    # LaTeX Temizliği
-    text = text.replace(r'\frac', '').replace('{', '').replace('}', '/')
-    text = text.replace(r'\sqrt', 'kök').replace(r'\times', 'x').replace(r'\cdot', '.')
+# --- PROFESYONEL TEMİZLEYİCİ (REGEX) ---
+def clean_latex_advanced(text):
+    # 1. Köşeli ve normal parantez bloklarını kaldır (\[...\] veya \(...\))
+    text = text.replace(r'\[', '').replace(r'\]', '').replace(r'\(', '').replace(r'\)', '')
     
+    # 2. Kesirleri düzelt: \frac{a}{b} -> a/b
+    text = re.sub(r'\\frac\{([^{}]+)\}\{([^{}]+)\}', r'\1/\2', text)
+    
+    # 3. Karekökleri düzelt: \sqrt{a} -> √a
+    text = re.sub(r'\\sqrt\{([^{}]+)\}', r'√(\1)', text)
+    
+    # 4. Metin kutularını düzelt: \text{kelime} -> kelime
+    text = re.sub(r'\\text\{([^{}]+)\}', r'\1', text)
+    
+    # 5. Diğer semboller
     replacements = {
-        'ğ': 'g', 'Ğ': 'G', 'ş': 's', 'Ş': 'S', 'ı': 'i', 'İ': 'I', 'ç': 'c', 'Ç': 'C', 'ö': 'o', 'Ö': 'O', 'ü': 'u', 'Ü': 'U',
-        '√': 'kok', '²': '^2', '³': '^3', 'π': 'pi', '∞': 'sonsuz', 
-        '≠': 'esit degil', '≤': '<=', '≥': '>=', '×': 'x', '·': '.', '÷': '/'
+        r'\times': ' x ', r'\cdot': ' . ', r'\div': ' ÷ ',
+        r'\le': '≤', r'\ge': '≥', r'\neq': '≠',
+        r'\approx': '≈', r'\pi': 'π', 
+        r'\quad': '  ', # Boşluk
+        '{': '', '}': '', # Kalan süslü parantezleri sil
     }
-    text = text.replace('**', '').replace('__', '').replace('###', '').replace('##', '').replace('#', '')
-    for search, replace in replacements.items():
-        text = text.replace(search, replace)
-    return text.encode('latin-1', 'replace').decode('latin-1')
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+        
+    return text
 
+# --- PDF MOTORU ---
 def create_safe_pdf(title, content):
+    # Font İndir
     font_path = "DejaVuSans.ttf"
     if not os.path.exists(font_path):
         try:
@@ -141,6 +155,7 @@ def create_safe_pdf(title, content):
     pdf = FPDF()
     pdf.add_page()
     
+    # Font Ayarla
     if os.path.exists(font_path):
         try:
             pdf.add_font('DejaVu', '', font_path, uni=True)
@@ -153,11 +168,17 @@ def create_safe_pdf(title, content):
         pdf.set_font("Arial", size=12)
         use_unicode = False
     
-    safe_title = title if use_unicode else clean_text_for_pdf(title)
+    # Başlık ve İçerik
+    safe_title = title if use_unicode else "OdevMatik"
     pdf.cell(0, 10, safe_title, ln=True, align='C')
     pdf.ln(10)
     
-    safe_content = content if use_unicode else clean_text_for_pdf(content)
+    # İçeriği temizle ve yaz
+    safe_content = content # Zaten temizlenmiş olarak gelecek
+    if not use_unicode:
+        # Unicode yoksa basit karakterlere çevir
+        safe_content = safe_content.encode('latin-1', 'replace').decode('latin-1')
+        
     pdf.multi_cell(0, 7, safe_content)
     
     return pdf.output(dest='S').encode('latin-1')
@@ -273,7 +294,6 @@ st.divider()
 # ==========================================
 with st.sidebar:
     st.title("🗂️ Menü")
-    
     if st.session_state.logged_in:
         total_solved = get_total_solved(st.session_state.username)
         st.write(f"**Çözülen Soru:** {total_solved}")
@@ -284,7 +304,7 @@ with st.sidebar:
         
         st.divider()
 
-        with st.expander("📜 Geçmiş"):
+        with st.expander("📜 Geçmiş Çözümlerim"):
             try:
                 gecmis_veriler = get_user_history(st.session_state.username)
                 if gecmis_veriler:
@@ -297,13 +317,13 @@ with st.sidebar:
                             except: pass
                         else:
                             st.caption(f"❓ {soru[:30]}...")
-                            
-                        # TEMİZ CEVAP
-                        clean_ans = clean_latex(cevap)
+                        
+                        # GEÇMİŞTE DE TEMİZ GÖSTER
+                        clean_ans_hist = clean_latex_advanced(cevap)
                         with st.popover("Cevabı Gör"):
-                            st.write(clean_ans)
+                            st.write(clean_ans_hist)
                         st.divider()
-                else: st.caption("Boş.")
+                else: st.caption("Henüz soru çözmedin.")
             except: st.caption("Veri hatası.")
 
         st.divider()
@@ -319,7 +339,6 @@ with st.sidebar:
         if st.button("Misafir Hakkını Sıfırla"):
             try: 
                 cookie_manager.delete("guest_used")
-                st.session_state.guest_locked_session = False
                 st.rerun()
             except: pass
         if st.session_state.logged_in:
@@ -339,7 +358,9 @@ if not st.session_state.logged_in:
 
 # --- SONUÇ GÖSTERİMİ ---
 if st.session_state.son_cevap:
-    clean_cevap = clean_latex(st.session_state.son_cevap)
+    # 🚀 ÖNEMLİ: CEVABI BURADA TEMİZLİYORUZ
+    clean_cevap = clean_latex_advanced(st.session_state.son_cevap)
+    
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{clean_cevap}</div>""", unsafe_allow_html=True)
     
     try:
@@ -416,7 +437,6 @@ else:
                     ana_prompt = """GÖREV: Soruyu öğrenci gibi çöz. Adım adım git. LaTeX kullanma. Semimi ol. Sembolleri (√, ²) kullan."""
                     if gorsel_veri:
                         secilen_model = "gpt-4o"
-                        # BURADAKİ SATIR DÜZELTİLDİ:
                         base64_image = base64.b64encode(gorsel_veri).decode('utf-8')
                         messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}]}]
                     elif metin_sorusu:
@@ -425,13 +445,8 @@ else:
 
                     response = client.chat.completions.create(model=secilen_model, messages=messages, max_tokens=1000)
                     cevap = response.choices[0].message.content
-                    if st.session_state.logged_in: 
-                        # Resim varsa kaydet
-                        resim_data = base64_image if gorsel_veri else None
-                        save_history(st.session_state.username, "Soru", cevap, resim_data)
-                    
+                    if st.session_state.logged_in: save_history(st.session_state.username, "Soru", cevap)
                     st.session_state.son_cevap = cevap
-                    if not st.session_state.logged_in: st.session_state.guest_locked_session = True
                     st.rerun()
                 except Exception as e: st.error(f"Hata: {e}")
 
