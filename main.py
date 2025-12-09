@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v63")
+cookie_manager = stx.CookieManager(key="auth_mgr_v64")
 
 # --- VERİTABANI ---
 def init_db():
@@ -169,11 +169,6 @@ st.markdown("""
         font-size: 1rem;
         margin-top: -5px;
     }
-    /* Giriş kutusunu biraz daha kompakt yap */
-    .streamlit-expanderHeader {
-        font-size: 1rem !important;
-        font-weight: bold !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -201,10 +196,9 @@ else:
 client = OpenAI(api_key=api_key)
 
 # ==========================================
-# ÜST BAR (DÜZELTİLDİ: SAĞA YASLAMA)
+# ÜST BAR (GİRİŞ/KAYIT)
 # ==========================================
-# Sütun oranlarını değiştirerek sağ tarafı daralttık ve sağa ittik.
-col_logo, col_auth = st.columns([5, 2])
+col_logo, col_auth = st.columns([3, 1]) # Oranı 3'e 1 yaptık, sağa yaslansın
 
 with col_logo:
     st.markdown("<div class='brand-title'>📝 ÖdevMatik</div>", unsafe_allow_html=True)
@@ -212,8 +206,8 @@ with col_logo:
 
 with col_auth:
     if not st.session_state.logged_in:
-        # İSİM DEĞİŞTİ: Sadece "Kayıt Ol" yazıyor (istek üzerine)
-        with st.expander("🔐 Kayıt Ol"):
+        # İSİM DÜZELDİ: "Giriş / Kayıt"
+        with st.expander("🔐 Giriş / Kayıt"):
             tab1, tab2 = st.tabs(["Giriş", "Kayıt"])
             with tab1:
                 with st.form("l_form"):
@@ -252,15 +246,9 @@ with st.sidebar:
     
     if st.session_state.logged_in:
         total = get_total_solved(st.session_state.username)
-        kredi = get_credit(st.session_state.username)
-        
-        progress_val = min(1.0, kredi / 100)
-        st.write(f"**Kalan Kredi Durumu:**")
-        st.progress(progress_val)
-        
         c1, c2 = st.columns(2)
         with c1: st.markdown(f"<div class='stat-box'><div class='stat-title'>Çözülen</div><div class='stat-value'>{total}</div></div>", unsafe_allow_html=True)
-        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Kalan</div><div class='stat-value'>{kredi}</div></div>", unsafe_allow_html=True)
+        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Kalan</div><div class='stat-value'>{get_credit(st.session_state.username)}</div></div>", unsafe_allow_html=True)
         
         with st.expander("📜 Geçmiş"):
             try:
@@ -297,14 +285,12 @@ with st.sidebar:
 guest_locked = False
 if not st.session_state.logged_in:
     try:
-        if cookie_manager.get("guest_used"): guest_locked = True
+        cookies = cookie_manager.get_all()
+        if "guest_used" in cookies: guest_locked = True
     except: pass
 
 # --- SONUÇ ---
 if st.session_state.son_cevap:
-    st.success("✅ Çözüm Başarıyla Hazırlandı!")
-    st.balloons()
-    
     clean_cevap = clean_latex(st.session_state.son_cevap)
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;padding:25px;font-family:'Patrick Hand',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{clean_cevap}</div>""", unsafe_allow_html=True)
     
@@ -360,59 +346,51 @@ else:
             if st.form_submit_button("Çöz ✍️", type="primary", use_container_width=True): run = True
 
     if run:
-        # GÖRSEL VEYA METİN VAR MI KONTROLÜ
-        if not gorsel_veri and not metin_sorusu:
-            st.warning("Lütfen bir soru girin!")
+        can = False
+        if st.session_state.logged_in:
+            if get_credit(st.session_state.username) > 0:
+                deduct_credit(st.session_state.username); can = True
+            else: st.error("Bitti!")
         else:
-            can_proceed = False
-            # 1. ÜYE KONTROLÜ
-            if st.session_state.logged_in:
-                if get_credit(st.session_state.username) > 0:
-                    deduct_credit(st.session_state.username)
-                    can_proceed = True
-                else:
-                    st.error("Kredin bitmiş!")
-            # 2. MİSAFİR KONTROLÜ (HATA DÜZELTİLDİ)
-            else:
-                # Misafir hakkını kullanmaya çalışıyor.
-                try:
-                    # Çerezi ayarlamaya çalış
+            # MİSAFİR KONTROLÜ
+            if not guest_locked:
+                try: 
                     cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
-                    # Çerez ayarlandıysa veya hata vermediyse devam et
-                    can_proceed = True
-                except:
-                    # Çok nadir bir çerez hatası olsa bile misafiri engelleme, devam etsin.
-                    can_proceed = True
+                    can = True
+                except: 
+                    # Çerez hatası olsa bile misafire bir kıyak geç, çözsün.
+                    can = True
+            else:
+                st.error("Misafir hakkın dolmuş!")
 
-            # 3. İŞLEM BAŞLATMA
-            if can_proceed:
-                with st.spinner("Çözülüyor..."):
-                    try:
-                        prompt = """
-                        GÖREV: Öğrencinin sorduğu soruyu matematik öğretmeni gibi çöz.
-                        KURALLAR:
-                        1. Önce işlemi kendi içinde doğrula.
-                        2. Sonra cevabı ve kısa çözüm yolunu yaz.
-                        3. Asla LaTeX kodu kullanma (\\frac, \\sqrt YASAK).
-                        4. Şekil varsa, gördüğün kadarıyla en mantıklı çözümü üret.
-                        5. Net ve kesin konuş.
-                        """
-                        
-                        model = "gpt-4o"
-                        
-                        if gorsel_veri:
-                            img = base64.b64encode(gorsel_veri).decode('utf-8')
-                            msgs = [{"role": "system", "content": prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}]
-                        else:
-                            msgs = [{"role": "system", "content": prompt}, {"role": "user", "content": f"Soru: {metin_sorusu}"}]
+        if can:
+            with st.spinner("Çözülüyor..."):
+                try:
+                    prompt = """
+                    GÖREV: Öğrencinin sorduğu soruyu matematik öğretmeni gibi çöz.
+                    KURALLAR:
+                    1. Önce işlemi kendi içinde doğrula.
+                    2. Sonra cevabı ve kısa çözüm yolunu yaz.
+                    3. Asla LaTeX kodu kullanma (\\frac, \\sqrt YASAK).
+                    4. Şekil varsa, gördüğün kadarıyla en mantıklı çözümü üret.
+                    5. Net ve kesin konuş.
+                    """
+                    
+                    model = "gpt-4o"
+                    
+                    if gorsel_veri:
+                        img = base64.b64encode(gorsel_veri).decode('utf-8')
+                        msgs = [{"role": "system", "content": prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}]
+                    else:
+                        msgs = [{"role": "system", "content": prompt}, {"role": "user", "content": f"Soru: {metin_sorusu}"}]
 
-                        resp = client.chat.completions.create(model=model, messages=msgs, max_tokens=1000)
-                        ans = resp.choices[0].message.content
-                        
-                        if st.session_state.logged_in:
-                            img_save = base64.b64encode(gorsel_veri).decode('utf-8') if gorsel_veri else None
-                            save_history(st.session_state.username, "Soru", ans, img_save)
-                        
-                        st.session_state.son_cevap = ans
-                        st.rerun()
-                    except Exception as e: st.error(f"Hata: {e}")
+                    resp = client.chat.completions.create(model=model, messages=msgs, max_tokens=1000)
+                    ans = resp.choices[0].message.content
+                    
+                    if st.session_state.logged_in:
+                        img_save = base64.b64encode(gorsel_veri).decode('utf-8') if gorsel_veri else None
+                        save_history(st.session_state.username, "Soru", ans, img_save)
+                    
+                    st.session_state.son_cevap = ans
+                    st.rerun()
+                except Exception as e: st.error(f"Hata: {e}")
