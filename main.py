@@ -13,7 +13,6 @@ import datetime
 from fpdf import FPDF
 import requests
 import os
-import re
 
 # --- AYARLAR ---
 st.set_page_config(
@@ -24,7 +23,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v54")
+cookie_manager = stx.CookieManager(key="auth_mgr_v55")
 
 # --- VERİTABANI ---
 def init_db():
@@ -113,17 +112,12 @@ def save_feedback(username, message):
 
 init_db()
 
-# --- TEMİZLEYİCİ (ANTI-LATEX) ---
-def clean_latex(text):
-    text = text.replace(r'\frac', '').replace('{', '').replace('}', '/')
-    text = text.replace(r'\sqrt', 'kök').replace(r'\times', 'x').replace(r'\cdot', '.')
-    text = text.replace(r'\(', '').replace(r'\)', '').replace(r'\[', '').replace(r'\]', '')
-    text = text.replace('//', '/')
-    return text
-
 # --- PDF MOTORU ---
 def clean_text_for_pdf(text):
-    text = clean_latex(text)
+    # LaTeX Temizliği
+    text = text.replace(r'\frac', '').replace('{', '').replace('}', '/')
+    text = text.replace(r'\sqrt', 'kök').replace(r'\times', 'x').replace(r'\cdot', '.')
+    
     replacements = {
         'ğ': 'g', 'Ğ': 'G', 'ş': 's', 'Ş': 'S', 'ı': 'i', 'İ': 'I', 'ç': 'c', 'Ç': 'C', 'ö': 'o', 'Ö': 'O', 'ü': 'u', 'Ü': 'U',
         '√': 'kok', '²': '^2', '³': '^3', 'π': 'pi', '∞': 'sonsuz', 
@@ -208,7 +202,6 @@ if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
-if "ozel_icerik" not in st.session_state: st.session_state.ozel_icerik = None
 
 time.sleep(0.1)
 try:
@@ -261,10 +254,8 @@ with col_auth:
                             st.session_state.verification_code = code
                             st.success("Kod yollandı!")
                         else: st.error("Hata")
-                
-                # HATALI GİRİNTİ DÜZELTİLDİ
                 if st.session_state.verification_code:
-                    kod_gir = st.text_input("Doğrulama Kodu:")
+                    kod_gir = st.text_input("Kod:")
                     if st.button("Onayla"):
                         if kod_gir == st.session_state.verification_code:
                             if add_user(r_email, r_pass):
@@ -282,12 +273,7 @@ st.divider()
 # ==========================================
 with st.sidebar:
     st.title("🗂️ Menü")
-    if st.button("🏠 Ana Ekran", use_container_width=True):
-        st.session_state.ozel_icerik = None
-        st.session_state.son_cevap = None
-        st.rerun()
-    st.divider()
-
+    
     if st.session_state.logged_in:
         total_solved = get_total_solved(st.session_state.username)
         st.write(f"**Çözülen Soru:** {total_solved}")
@@ -298,7 +284,7 @@ with st.sidebar:
         
         st.divider()
 
-        with st.expander("📜 Geçmiş Çözümlerim"):
+        with st.expander("📜 Geçmiş"):
             try:
                 gecmis_veriler = get_user_history(st.session_state.username)
                 if gecmis_veriler:
@@ -312,46 +298,30 @@ with st.sidebar:
                         else:
                             st.caption(f"❓ {soru[:30]}...")
                             
-                        # TEMİZ CEVAP GÖSTER
-                        clean_answer = clean_latex(cevap)
+                        # TEMİZ CEVAP
+                        clean_ans = clean_latex(cevap)
                         with st.popover("Cevabı Gör"):
-                            st.write(clean_answer)
+                            st.write(clean_ans)
                         st.divider()
-                else: st.caption("Henüz soru çözmedin.")
+                else: st.caption("Boş.")
             except: st.caption("Veri hatası.")
 
-        st.divider()
-
-        with st.expander("💬 Bize Ulaşın"):
-            with st.form("feedback_form"):
-                feedback_msg = st.text_area("Mesajınız:")
-                if st.form_submit_button("Gönder"):
-                    save_feedback(st.session_state.username, feedback_msg)
-                    st.success("İletildi.")
-        
         st.divider()
         if st.button("🚪 Çıkış Yap"):
             st.session_state.logged_in = False
             st.session_state.username = "Misafir"
             cookie_manager.delete("user_token")
             st.rerun()
-
     else:
         st.warning("⚠️ Misafir Modu")
-        st.info("🎁 **Üye ol, 100 soru hakkı kazan!**")
     
-    st.divider()
     if st.checkbox("Admin Modu"):
-        # KEYERROR HATASI DÜZELTİLDİ
         if st.button("Misafir Hakkını Sıfırla"):
-            try:
-                cookies = cookie_manager.get_all()
-                if "guest_used" in cookies:
-                    cookie_manager.delete("guest_used")
+            try: 
+                cookie_manager.delete("guest_used")
                 st.session_state.guest_locked_session = False
                 st.rerun()
-            except: 
-                pass
+            except: pass
         if st.session_state.logged_in:
             if st.button("💰 Kendine 100 Kredi Yükle"):
                 update_credit(st.session_state.username, 100); st.success("Yüklendi! Yenile."); time.sleep(1); st.rerun()
@@ -370,7 +340,6 @@ if not st.session_state.logged_in:
 # --- SONUÇ GÖSTERİMİ ---
 if st.session_state.son_cevap:
     clean_cevap = clean_latex(st.session_state.son_cevap)
-    
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{clean_cevap}</div>""", unsafe_allow_html=True)
     
     try:
@@ -394,69 +363,77 @@ if st.session_state.son_cevap:
     with p_col2: st.link_button("📧 Mail At", mail_link, use_container_width=True)
     st.divider()
 
-    if guest_locked and not st.session_state.logged_in:
-        st.warning("⚠️ Misafir hakkını kullandın! Yeni soru için lütfen sağ üstten **Giriş Yap** veya **Kayıt Ol**.")
-    else:
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if st.button("📁 Galeri", use_container_width=True): st.session_state.aktif_mod = "Galeri"
-        with col2:
-            if st.button("📸 Kamera", use_container_width=True): st.session_state.aktif_mod = "Kamera"
-        with col3:
-            if st.button("⌨️ Yaz", use_container_width=True): st.session_state.aktif_mod = "Yaz"
+    if st.button("⬅️ Yeni Soru Sor", use_container_width=True):
+        st.session_state.son_cevap = None
+        st.rerun()
 
-        if "aktif_mod" not in st.session_state: st.session_state.aktif_mod = "Galeri"
-        st.write("")
-        gorsel_veri = None; metin_sorusu = None; form_tetiklendi = False
+elif guest_locked and not st.session_state.logged_in:
+    st.warning("⚠️ Misafir hakkını kullandın! Yeni soru için lütfen sağ üstten **Giriş Yap** veya **Kayıt Ol**.")
+else:
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("📁 Galeri", use_container_width=True): st.session_state.aktif_mod = "Galeri"
+    with col2:
+        if st.button("📸 Kamera", use_container_width=True): st.session_state.aktif_mod = "Kamera"
+    with col3:
+        if st.button("⌨️ Yaz", use_container_width=True): st.session_state.aktif_mod = "Yaz"
 
-        if st.session_state.aktif_mod == "Galeri":
-            st.info("📂 **Galeriden Seç**")
-            yuklenen_dosya = st.file_uploader("", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
-            if yuklenen_dosya: gorsel_veri = yuklenen_dosya.getvalue(); 
-            if st.button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True): form_tetiklendi = True
-        elif st.session_state.aktif_mod == "Kamera":
-            st.info("📸 **Fotoğraf Çek**")
-            cekilen_foto = st.camera_input("Kamerayı aç")
-            if cekilen_foto: gorsel_veri = cekilen_foto.getvalue(); 
-            if st.button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True): form_tetiklendi = True
-        elif st.session_state.aktif_mod == "Yaz":
-            st.info("⌨️ **Soruyu Elle Yaz**")
-            with st.form(key='soru_yazma_formu'):
-                metin_sorusu = st.text_area("", height=150, placeholder="Sorunu buraya yaz...")
-                st.write("")
-                submit_soru = st.form_submit_button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True)
-                if submit_soru and metin_sorusu: form_tetiklendi = True
+    if "aktif_mod" not in st.session_state: st.session_state.aktif_mod = "Galeri"
+    st.write("")
+    gorsel_veri = None; metin_sorusu = None; form_tetiklendi = False
 
-        if form_tetiklendi:
-            can_proceed = False
-            if st.session_state.logged_in:
-                kredi = get_credit(st.session_state.username)
-                if kredi > 0: deduct_credit(st.session_state.username); st.toast("1 Hak düştü!", icon="🎫"); can_proceed = True
-                else: st.error("😔 Hakkın bitti!")
-            else:
-                try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1)); st.toast("Misafir hakkı!", icon="🎁"); can_proceed = True
-                except: pass
+    if st.session_state.aktif_mod == "Galeri":
+        st.info("📂 **Galeriden Seç**")
+        yuklenen_dosya = st.file_uploader("", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
+        if yuklenen_dosya: gorsel_veri = yuklenen_dosya.getvalue(); 
+        if st.button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True): form_tetiklendi = True
+    elif st.session_state.aktif_mod == "Kamera":
+        st.info("📸 **Fotoğraf Çek**")
+        cekilen_foto = st.camera_input("Kamerayı aç")
+        if cekilen_foto: gorsel_veri = cekilen_foto.getvalue(); 
+        if st.button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True): form_tetiklendi = True
+    elif st.session_state.aktif_mod == "Yaz":
+        st.info("⌨️ **Soruyu Elle Yaz**")
+        with st.form(key='soru_yazma_formu'):
+            metin_sorusu = st.text_area("", height=150, placeholder="Sorunu buraya yaz...")
+            st.write("")
+            submit_soru = st.form_submit_button("Çöz ve Yazdır ✍️", type="primary", use_container_width=True)
+            if submit_soru and metin_sorusu: form_tetiklendi = True
 
-            if can_proceed:
-                with st.spinner(random.choice(["Hoca bakıyor...", "Çözülüyor..."])):
-                    try:
-                        ana_prompt = """GÖREV: Soruyu öğrenci gibi çöz. Adım adım git. LaTeX kullanma. Semimi ol. Sembolleri (√, ²) kullan."""
-                        if gorsel_veri:
-                            secilen_model = "gpt-4o"
-                            base64_image = base64.b64encode(gorsel_veri).decode('utf-8')
-                            messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}]}]
-                        elif metin_sorusu:
-                            secilen_model = "gpt-4o-mini"
-                            messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": f"Soru: {metin_sorusu}"}]
+    if form_tetiklendi:
+        can_proceed = False
+        if st.session_state.logged_in:
+            kredi = get_credit(st.session_state.username)
+            if kredi > 0: deduct_credit(st.session_state.username); st.toast("1 Hak düştü!", icon="🎫"); can_proceed = True
+            else: st.error("😔 Hakkın bitti!")
+        else:
+            try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1)); st.toast("Misafir hakkı!", icon="🎁"); can_proceed = True
+            except: pass
 
-                        response = client.chat.completions.create(model=secilen_model, messages=messages, max_tokens=1000)
-                        cevap = response.choices[0].message.content
-                        if st.session_state.logged_in: save_history(st.session_state.username, "Soru", cevap)
-                        st.session_state.son_cevap = cevap
-                        if not st.session_state.logged_in:
-                            st.session_state.guest_locked_session = True
-                        st.rerun()
-                    except Exception as e: st.error(f"Hata: {e}")
+        if can_proceed:
+            with st.spinner(random.choice(["Hoca bakıyor...", "Çözülüyor..."])):
+                try:
+                    ana_prompt = """GÖREV: Soruyu öğrenci gibi çöz. Adım adım git. LaTeX kullanma. Semimi ol. Sembolleri (√, ²) kullan."""
+                    if gorsel_veri:
+                        secilen_model = "gpt-4o"
+                        # BURADAKİ SATIR DÜZELTİLDİ:
+                        base64_image = base64.b64encode(gorsel_veri).decode('utf-8')
+                        messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}]}]
+                    elif metin_sorusu:
+                        secilen_model = "gpt-4o-mini"
+                        messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": f"Soru: {metin_sorusu}"}]
+
+                    response = client.chat.completions.create(model=secilen_model, messages=messages, max_tokens=1000)
+                    cevap = response.choices[0].message.content
+                    if st.session_state.logged_in: 
+                        # Resim varsa kaydet
+                        resim_data = base64_image if gorsel_veri else None
+                        save_history(st.session_state.username, "Soru", cevap, resim_data)
+                    
+                    st.session_state.son_cevap = cevap
+                    if not st.session_state.logged_in: st.session_state.guest_locked_session = True
+                    st.rerun()
+                except Exception as e: st.error(f"Hata: {e}")
 
 st.divider()
 st.caption("⚠️ **Yasal Uyarı:** Sonuçlar yapay zeka tarafından üretilmiştir ve hatalı olabilir.")
