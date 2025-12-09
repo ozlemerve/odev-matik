@@ -23,7 +23,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v46")
+cookie_manager = stx.CookieManager(key="auth_mgr_v47")
 
 # --- MÜFREDAT VERİTABANI ---
 MUFREDAT = {
@@ -36,6 +36,17 @@ MUFREDAT = {
     "11. Sınıf": {"Matematik": ["Trigonometri", "Analitik"], "Fizik": ["Kuvvet", "Elektrik"]},
     "12. Sınıf": {"Matematik": ["Logaritma", "Türev", "İntegral"], "Fizik": ["Çembersel", "Modern Fizik"]}
 }
+
+# --- SENARYO HAVUZU ---
+SENARYOLAR = [
+    "Bir mühendislik projesindeki hesaplama hatası",
+    "Tarihi bir kriptex şifresinin çözülmesi",
+    "Uzay görevindeki yakıt hesaplaması",
+    "Bir mimarın köprü tasarımı",
+    "E-ticaret deposundaki stok optimizasyonu",
+    "Olimpiyat sporcusunun antrenman verileri",
+    "Bir dedektifin olay yerindeki kanıt analizi"
+]
 
 # --- VERİTABANI ---
 def init_db():
@@ -285,7 +296,7 @@ with st.sidebar:
         st.rerun()
     st.divider()
 
-    # DERS NOTU (MATEMATİK 15 SORU MODU)
+    # --- DERS NOTU (ARTIK FULL GPT-4o) ---
     with st.expander("📚 Ders Notu Oluştur"):
         st.caption("Detaylı ve sembollü anlatım!")
         not_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="not_sinif")
@@ -299,16 +310,36 @@ with st.sidebar:
                 if get_credit(st.session_state.username) > 0:
                     deduct_credit(st.session_state.username); st.toast("1 Hak kullanıldı", icon="🎫")
                     with st.spinner("Hazırlanıyor..."):
+                        
+                        # MODEL: GPT-4o (KALİTE İÇİN DEĞİŞTİRİLDİ)
+                        not_model = "gpt-4o"
+                        
                         if not_ders == "Matematik":
-                            not_prompt = f"""SEN BİR MATEMATİK DERS KİTABI YAZARISIN. SINIF: {not_sinif}. KONU: {not_konu}.
-                            GÖREV: Detaylı anlat. EN AZ 1100 KELİME. EN AZ 15 ÖRNEK ÇÖZ.
-                            Sembolleri (√, ², π, ∫) DOĞRUDAN kullan. Asla LaTeX kullanma."""
+                            not_prompt = f"""
+                            SEN ACIMASIZ VE DETAYCI BİR MATEMATİK PROFESÖRÜSÜN.
+                            DERS: Matematik. SINIF: {not_sinif}. KONU: {not_konu}.
+                            
+                            GÖREVLER:
+                            1. Konuyu en ince detayına kadar, ispatlarıyla anlat.
+                            2. "Tanım", "Kural", "Uyarı" başlıkları kullan.
+                            3. İçerik EN AZ 1100 KELİME olacak. Kısa kesme.
+                            4. EN AZ 15 ADET "Çözümlü Örnek" ekle. Örnekler kolaydan zora gitsin. Çözümleri adım adım göster.
+                            5. Matematik sembollerini (√, ², π, ∫) DOĞRUDAN kullan. LaTeX kullanma.
+                            """
                         else:
-                            not_prompt = f"""SEN BİR DERS KİTABI YAZARISIN. DERS: {not_ders}. SINIF: {not_sinif}. KONU: {not_konu}.
-                            GÖREV: Detaylı anlat. 3 ÖRNEK VER."""
+                            not_prompt = f"""
+                            SEN BİR DERS KİTABI YAZARISIN. DERS: {not_ders}. SINIF: {not_sinif}. KONU: {not_konu}.
+                            
+                            GÖREVLER:
+                            1. Konuyu akademik ve detaylı anlat. Sohbet dili kullanma.
+                            2. En az 1000 kelime olsun.
+                            3. En az 5 tane çözümlü/açıklamalı örnek ver.
+                            4. Konunun püf noktalarını "Hap Bilgi" kutusu içinde ver.
+                            """
+                            
                         try:
-                            # NOTLAR İÇİN MINI YETERLİDİR
-                            resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": not_prompt}], max_tokens=2500)
+                            # 3000 Token limit (Uzun içerik için)
+                            resp = client.chat.completions.create(model=not_model, messages=[{"role": "user", "content": not_prompt}], max_tokens=3000)
                             st.session_state.ozel_icerik = resp.choices[0].message.content
                             st.session_state.icerik_tipi = "Ders Notu"
                             st.rerun()
@@ -316,7 +347,7 @@ with st.sidebar:
                 else: st.error("Hakkın bitti!")
             else: st.warning("Üye olmalısın.")
 
-    # --- TEST HAZIRLA (KALİTE AYARLI) ---
+    # --- TEST HAZIRLA ---
     with st.expander("📝 Test Hazırla"):
         q_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="q_sinif")
         q_dersler = list(MUFREDAT[q_sinif].keys()) if q_sinif in MUFREDAT else ["Matematik"]
@@ -337,29 +368,32 @@ with st.sidebar:
                     deduct_credit(st.session_state.username); st.toast("1 Hak kullanıldı", icon="🎫")
                     with st.spinner(f"{q_adet} adet {q_zorluk} soru hazırlanıyor..."):
                         
-                        # --- MODEL VE PROMPT AYARI (KALİTE İÇİN) ---
-                        # Eğer Zor veya Orta ise GPT-4o kullan (Kalite için)
-                        # Eğer Kolay ise GPT-4o-mini kullan (Tasarruf için)
+                        senaryo = random.choice(SENARYOLAR)
+                        
                         if q_zorluk in ["Orta", "Zor"]:
                             test_model = "gpt-4o"
-                            ek_talimat = "Sorular HİKAYELEŞTİRİLMİŞ, YENİ NESİL, MANTIK MUHAKEME gerektiren türde olsun. Asla basit işlem sorma."
+                            ek_talimat = f"""
+                            BU BİR YENİ NESİL SINAVDIR. SENARYO: "{senaryo}".
+                            Sorular HİKAYELEŞTİRİLMİŞ, MANTIK VE MUHAKEME gerektiren türde olsun.
+                            Asla basit işlem sorma. Öğrenciyi zorla.
+                            """
                         else:
                             test_model = "gpt-4o-mini"
                             ek_talimat = "Sorular kazanım odaklı, temel seviyede olsun."
 
                         soru_prompt = f"""
-                        GÖREV: Sen MEB Soru Hazırlama Komisyonu Üyesisin.
-                        SINIF: {q_sinif}. DERS: {q_ders}. KONU: {q_konu}.
+                        GÖREV: {q_sinif} seviyesi {q_ders} dersi "{q_konu}" konusu.
                         ADET: {q_adet} tane. SEVİYE: {q_zorluk}.
                         
+                        {ek_talimat}
+                        
                         TALİMATLAR:
-                        1. {ek_talimat}
-                        2. Soruları 1., 2. diye numaralandır.
-                        3. En alta 'CEVAP ANAHTARI VE ÇÖZÜMLER' başlığı açıp detaylı çöz.
-                        4. Sembolleri (√, ², π) doğrudan kullan. LaTeX KULLANMA.
+                        1. Soruları 1., 2. diye numaralandır.
+                        2. En alta 'CEVAP ANAHTARI VE ÇÖZÜMLER' başlığı açıp detaylı çöz.
+                        3. Sembolleri (√, ², π) doğrudan kullan. LaTeX KULLANMA.
                         """
                         try:
-                            resp = client.chat.completions.create(model=test_model, messages=[{"role": "user", "content": soru_prompt}], max_tokens=2500)
+                            resp = client.chat.completions.create(model=test_model, messages=[{"role": "user", "content": soru_prompt}], max_tokens=3000)
                             st.session_state.ozel_icerik = resp.choices[0].message.content
                             st.session_state.icerik_tipi = f"{q_zorluk} Seviye Test"
                             st.rerun()
@@ -482,7 +516,7 @@ else:
             if can_proceed:
                 with st.spinner(random.choice(["Hoca bakıyor...", "Çözülüyor..."])):
                     try:
-                        ana_prompt = """GÖREV: Soruyu öğrenci gibi çöz. Adım adım git. LaTeX kullanma. Semimi ol. Sembolleri (√, ²) kullan."""
+                        ana_prompt = """GÖREV: Soruyu öğrenci gibi çöz. Adım adım git. LaTeX kullanma. Samimi ol. Sembolleri (√, ²) kullan."""
                         if gorsel_veri:
                             secilen_model = "gpt-4o"
                             base64_image = base64.b64encode(gorsel_veri).decode('utf-8')
