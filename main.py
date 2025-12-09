@@ -5,9 +5,6 @@ import random
 import urllib.parse
 import sqlite3
 import time
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 import extra_streamlit_components as stx
 import datetime
 from fpdf import FPDF
@@ -24,7 +21,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v59")
+cookie_manager = stx.CookieManager(key="auth_mgr_v61")
 
 # --- VERİTABANI ---
 def init_db():
@@ -33,7 +30,6 @@ def init_db():
     c.execute('CREATE TABLE IF NOT EXISTS usersTable (username TEXT PRIMARY KEY, password TEXT, credit INTEGER)')
     c.execute('''CREATE TABLE IF NOT EXISTS historyTable_v2 
                  (username TEXT, question TEXT, answer TEXT, image_data TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
-    c.execute('CREATE TABLE IF NOT EXISTS feedbackTable (username TEXT, message TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)')
     conn.commit()
     conn.close()
 
@@ -97,13 +93,6 @@ def get_total_solved(username):
     conn.close()
     return count
 
-def save_feedback(username, message):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute('INSERT INTO feedbackTable (username, message) VALUES (?, ?)', (username, message))
-    conn.commit()
-    conn.close()
-
 init_db()
 
 # --- TEMİZLEYİCİ ---
@@ -152,13 +141,38 @@ def create_safe_pdf(title, content):
     pdf.multi_cell(0, 7, safe_content)
     return pdf.output(dest='S').encode('latin-1')
 
-# --- CSS ---
+# --- CSS (MAKYAJ) ---
 st.markdown("""
 <style>
-    div.stButton > button { width: 100%; border-radius: 10px; height: 50px; font-weight: bold; }
+    /* Butonlar */
+    div.stButton > button { width: 100%; border-radius: 12px; height: 55px; font-weight: 800; font-size: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.2s; }
+    div.stButton > button:hover { transform: scale(1.02); }
+    
+    /* WhatsApp ve Mail */
+    a[href*="whatsapp"] button { color: #25D366 !important; border-color: #25D366 !important; }
+    a[href^="mailto"] button { color: #0078D4 !important; border-color: #0078D4 !important; }
+    
+    /* İstatistik Kutuları */
     .stat-box { background-color: #e3f2fd; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 10px; border: 1px solid #90caf9; }
     .stat-title { font-size: 14px; color: #555; }
     .stat-value { font-size: 24px; font-weight: bold; color: #1565c0; }
+    
+    /* Başlık Stili */
+    .brand-title {
+        text-align: center;
+        font-size: 3rem;
+        font-weight: 800;
+        color: #0d47a1; /* Lacivert */
+        text-shadow: 2px 2px 0px #ffca28; /* Turuncu Gölge */
+        margin-bottom: 0px;
+        font-family: 'Helvetica', sans-serif;
+    }
+    .brand-subtitle {
+        text-align: center;
+        color: #666;
+        font-size: 1.1rem;
+        margin-top: -10px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -186,12 +200,13 @@ else:
 client = OpenAI(api_key=api_key)
 
 # ==========================================
-# ÜST BAR
+# ÜST BAR (LOGO VE GİRİŞ)
 # ==========================================
 col_logo, col_auth = st.columns([2, 1])
 with col_logo:
-    st.markdown("<h1 style='margin-bottom:0;'>📝 ÖdevMatik</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color:grey;'>Hızlı ve Doğru Çözüm</p>", unsafe_allow_html=True)
+    # 🎨 YENİ LOGO TASARIMI
+    st.markdown("<div class='brand-title'>📝 ÖdevMatik</div>", unsafe_allow_html=True)
+    st.markdown("<div class='brand-subtitle'>Yeni Nesil Eğitim Asistanı</div>", unsafe_allow_html=True)
 
 with col_auth:
     if not st.session_state.logged_in:
@@ -213,17 +228,17 @@ with col_auth:
                     nu = st.text_input("Email")
                     np = st.text_input("Şifre", type="password")
                     if st.form_submit_button("Kayıt Ol"):
-                        if add_user(nu, np): st.success("Oldu! Giriş yap.");
+                        if add_user(nu, np): st.success("Kayıt oldun! Giriş yap.");
                         else: st.error("Hata")
     else:
         kredi = get_credit(st.session_state.username)
         st.info(f"👤 **{st.session_state.username.split('@')[0]}**")
-        st.caption(f"🎫 Hak: **{kredi}**")
+        st.caption(f"🎫 Kalan Kredi: **{kredi}**")
 
 st.divider()
 
 # ==========================================
-# YAN MENÜ
+# YAN MENÜ (İSTATİSTİK & İLERLEME)
 # ==========================================
 with st.sidebar:
     st.title("🎓 Öğrenci Paneli")
@@ -234,9 +249,17 @@ with st.sidebar:
     
     if st.session_state.logged_in:
         total = get_total_solved(st.session_state.username)
+        kredi = get_credit(st.session_state.username)
+        
+        # 📊 İLERLEME ÇUBUĞU (YENİ)
+        # 100 üzerinden hesaplıyoruz.
+        progress_val = min(1.0, kredi / 100)
+        st.write(f"**Kalan Kredi Durumu:**")
+        st.progress(progress_val)
+        
         c1, c2 = st.columns(2)
         with c1: st.markdown(f"<div class='stat-box'><div class='stat-title'>Çözülen</div><div class='stat-value'>{total}</div></div>", unsafe_allow_html=True)
-        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Kalan</div><div class='stat-value'>{get_credit(st.session_state.username)}</div></div>", unsafe_allow_html=True)
+        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Kalan</div><div class='stat-value'>{kredi}</div></div>", unsafe_allow_html=True)
         
         with st.expander("📜 Geçmiş"):
             try:
@@ -278,6 +301,11 @@ if not st.session_state.logged_in:
 
 # --- SONUÇ ---
 if st.session_state.son_cevap:
+    # 💫 BAŞARI KARTI (YENİ)
+    st.success("✅ Çözüm Başarıyla Hazırlandı!")
+    # 🎉 KONFETİ (YENİ)
+    st.balloons()
+    
     clean_cevap = clean_latex(st.session_state.son_cevap)
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;padding:25px;font-family:'Patrick Hand',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{clean_cevap}</div>""", unsafe_allow_html=True)
     
@@ -334,7 +362,8 @@ else:
         can = False
         if st.session_state.logged_in:
             if get_credit(st.session_state.username) > 0:
-                deduct_credit(st.session_state.username); st.toast("Hakkın düştü", icon="🎫"); can = True
+                deduct_credit(st.session_state.username); can = True
+                # Toast yerine artık yukarıda Success ve Balon çıkacak
             else: st.error("Bitti!")
         else:
             try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1)); can = True
@@ -343,10 +372,8 @@ else:
         if can:
             with st.spinner("Çözülüyor..."):
                 try:
-                    # PROMPT GÜNCELLEMESİ: HATA YAPMA ŞANSI YOK
                     prompt = """
                     GÖREV: Öğrencinin sorduğu soruyu matematik öğretmeni gibi çöz.
-                    
                     KURALLAR:
                     1. Önce işlemi kendi içinde doğrula.
                     2. Sonra cevabı ve kısa çözüm yolunu yaz.
@@ -355,8 +382,6 @@ else:
                     5. Net ve kesin konuş.
                     """
                     
-                    # BURADA DEĞİŞİKLİK YAPILDI: ARTIK HER DURUMDA GPT-4o KULLANILIYOR
-                    # Yazı olsa bile GPT-4o (Ferrari) kullanacak. Hata payı sıfıra yakın.
                     model = "gpt-4o"
                     
                     if gorsel_veri:
