@@ -13,7 +13,6 @@ import datetime
 from fpdf import FPDF
 import requests
 import os
-import re # Düzenli ifadeler (LaTeX temizliği için)
 
 # --- AYARLAR ---
 st.set_page_config(
@@ -24,18 +23,18 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v48")
+cookie_manager = stx.CookieManager(key="auth_mgr_v49")
 
 # --- MÜFREDAT VERİTABANI ---
 MUFREDAT = {
-    "5. Sınıf (Maarif)": {"Matematik": ["Doğal Sayılar", "Kesirler", "Ondalık Gösterim", "Yüzdeler", "Geometrik Cisimler"], "Fen": ["Güneş, Dünya, Ay", "Canlılar", "Kuvvet", "Madde", "Işık", "Elektrik"]},
-    "6. Sınıf (Maarif)": {"Matematik": ["Doğal Sayılar", "Çarpanlar ve Katlar", "Kümeler", "Tam Sayılar", "Kesirler", "Ondalık Gösterim", "Oran", "Cebirsel İfadeler", "Veri Analizi", "Açılar"], "Fen": ["Güneş Sistemi", "Vücudumuz", "Kuvvet", "Madde", "Ses", "Elektrik"]},
-    "7. Sınıf": {"Matematik": ["Tam Sayılar", "Rasyonel Sayılar", "Cebirsel İfadeler", "Eşitlik ve Denklem", "Oran-Orantı", "Yüzdeler", "Doğrular ve Açılar", "Çokgenler", "Çember"], "Fen": ["Uzay", "Hücre", "Kuvvet-Enerji", "Madde", "Işık", "Canlılar", "Elektrik"]},
-    "8. Sınıf (LGS)": {"Matematik": ["Çarpanlar ve Katlar", "Üslü İfadeler", "Kareköklü İfadeler", "Veri Analizi", "Basit Olayların Olma Olasılığı", "Cebirsel İfadeler", "Doğrusal Denklemler", "Eşitsizlikler", "Üçgenler", "Dönüşüm Geometrisi"], "Fen": ["Mevsimler", "DNA", "Basınç", "Madde", "Basit Makineler", "Enerji", "Elektrik"]},
-    "9. Sınıf": {"Matematik": ["Mantık", "Kümeler", "Denklemler ve Eşitsizlikler", "Üçgenler", "Veri"], "Fizik": ["Madde", "Kuvvet", "Enerji", "Isı"], "Kimya": ["Atom", "Periyodik Sistem", "Türler Arası Etkileşim"]},
-    "10. Sınıf": {"Matematik": ["Sayma ve Olasılık", "Fonksiyonlar", "Polinomlar", "İkinci Dereceden Denklemler", "Dörtgenler"], "Fizik": ["Elektrik", "Basınç", "Dalgalar", "Optik"]},
-    "11. Sınıf": {"Matematik": ["Trigonometri", "Analitik Geometri", "Fonksiyonlar", "Denklem Sistemleri", "Çember", "Olasılık"], "Fizik": ["Kuvvet ve Hareket", "Elektrik ve Manyetizma"]},
-    "12. Sınıf": {"Matematik": ["Logaritma", "Diziler", "Trigonometri", "Dönüşümler", "Türev", "İntegral", "Çember Analitiği"], "Fizik": ["Çembersel Hareket", "Dalga Mekaniği", "Modern Fizik"]}
+    "5. Sınıf (Maarif)": {"Matematik": ["Doğal Sayılar", "Kesirler", "Ondalık Gösterim", "Yüzdeler", "Geometrik Cisimler"], "Fen": ["Güneş", "Canlılar"]},
+    "6. Sınıf (Maarif)": {"Matematik": ["Doğal Sayılar", "Çarpanlar", "Kümeler", "Tam Sayılar", "Kesirler", "Ondalık", "Oran", "Cebir", "Veri", "Açılar"], "Fen": ["Güneş Sistemi", "Vücudumuz"]},
+    "7. Sınıf": {"Matematik": ["Tam Sayılar", "Rasyonel Sayılar", "Cebirsel", "Denklem", "Oran-Orantı", "Yüzdeler", "Doğrular", "Çokgenler", "Çember"], "Fen": ["Uzay", "Hücre"]},
+    "8. Sınıf (LGS)": {"Matematik": ["Çarpanlar Katlar", "Üslü İfadeler", "Kareköklü İfadeler", "Veri Analizi", "Olasılık", "Cebirsel", "Denklem"], "Fen": ["Mevsimler", "DNA"]},
+    "9. Sınıf": {"Matematik": ["Mantık", "Kümeler", "Denklemler"], "Fizik": ["Madde", "Kuvvet"]},
+    "10. Sınıf": {"Matematik": ["Sayma", "Fonksiyon"], "Fizik": ["Elektrik", "Dalga"]},
+    "11. Sınıf": {"Matematik": ["Trigonometri", "Analitik"], "Fizik": ["Kuvvet", "Elektrik"]},
+    "12. Sınıf": {"Matematik": ["Logaritma", "Türev", "İntegral"], "Fizik": ["Çembersel", "Modern Fizik"]}
 }
 
 # --- VERİTABANI ---
@@ -121,26 +120,17 @@ def save_feedback(username, message):
 
 init_db()
 
-# --- GELİŞMİŞ PDF MOTORU (LATEX TEMİZLEYİCİ) ---
+# --- PDF MOTORU (HATA VERMEZ) ---
 def clean_text_for_pdf(text):
-    # 1. LaTeX komutlarını temizle/dönüştür
-    text = text.replace(r'\[', '').replace(r'\]', '').replace(r'\(', '').replace(r'\)', '')
-    text = text.replace(r'\sqrt', 'kok').replace(r'\frac', '').replace(r'\times', 'x').replace(r'\cdot', '.')
-    text = text.replace('{', '(').replace('}', ')') # Süslü parantezleri normale çevir
-    
-    # 2. Türkçe ve Sembol Haritası
     replacements = {
         'ğ': 'g', 'Ğ': 'G', 'ş': 's', 'Ş': 'S', 'ı': 'i', 'İ': 'I', 'ç': 'c', 'Ç': 'C', 'ö': 'o', 'Ö': 'O', 'ü': 'u', 'Ü': 'U',
         '√': 'kok', '²': '^2', '³': '^3', 'π': 'pi', '∞': 'sonsuz', 
-        '≠': 'esit degil', '≤': '<=', '≥': '>=', '×': 'x', '·': '.', '÷': '/'
+        '≠': 'esit degil', '≤': '<=', '≥': '>=', '×': 'x', '·': '*', '÷': '/', 
+        '±': '+/-', '≈': 'yaklasik', '∫': 'integral', '∑': 'toplam', '∆': 'delta'
     }
-    
-    # 3. Markdown temizliği
     text = text.replace('**', '').replace('__', '').replace('###', '').replace('##', '').replace('#', '')
-    
     for search, replace in replacements.items():
         text = text.replace(search, replace)
-    
     return text.encode('latin-1', 'replace').decode('latin-1')
 
 def create_safe_pdf(title, content):
@@ -172,14 +162,8 @@ def create_safe_pdf(title, content):
     pdf.cell(0, 10, safe_title, ln=True, align='C')
     pdf.ln(10)
     
-    # İçerik temizliği ve yazımı
-    clean_content_display = content if use_unicode else clean_text_for_pdf(content)
-    
-    # Eğer Unicode font yoksa mecburen temizle
-    if not use_unicode:
-         clean_content_display = clean_text_for_pdf(content)
-         
-    pdf.multi_cell(0, 7, clean_content_display)
+    safe_content = content if use_unicode else clean_text_for_pdf(content)
+    pdf.multi_cell(0, 7, safe_content)
     
     return pdf.output(dest='S').encode('latin-1')
 
@@ -301,7 +285,7 @@ with st.sidebar:
         st.rerun()
     st.divider()
 
-    # DERS NOTU (KAPSAMLI PROMPT)
+    # DERS NOTU (KAPSAMLI VE SERT PROMPT)
     with st.expander("📚 Ders Notu Oluştur"):
         st.caption("Detaylı ve sembollü anlatım!")
         not_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="not_sinif")
@@ -316,26 +300,23 @@ with st.sidebar:
                     deduct_credit(st.session_state.username); st.toast("1 Hak kullanıldı", icon="🎫")
                     with st.spinner("Hazırlanıyor..."):
                         
-                        # --- KAPSAMLI PROMPT ---
-                        if not_ders == "Matematik":
-                            not_prompt = f"""
-                            GÖREV: {not_sinif} seviyesi "{not_konu}" konusu için DETAYLI DERS NOTU HAZIRLA.
-                            
-                            İÇERİK ŞARTI:
-                            1. Sadece tanım verme! Konunun alt başlıklarına gir (Örn: Kareköklü ise: Tam kare, Tahmin, Çarpma, Bölme, Eşlenik vb. HEPSİNİ ANLAT).
-                            2. Her alt başlık için en az 2 tane çözümlü örnek ver.
-                            3. En sona "KARIŞIK PEKİŞTİRME SORULARI" ekle (5 adet zor soru ve çözümleri).
-                            4. Toplam içerik DOYURUCU olmalı, 1200 kelimeyi hedefle.
-                            5. Sembolleri (√, ², π) doğrudan kullan, asla LaTeX (\\sqrt) kullanma!
-                            """
-                        else:
-                            not_prompt = f"""
-                            GÖREV: {not_sinif} seviyesi {not_ders} - "{not_konu}" konusu.
-                            DETAYLI DERS NOTU HAZIRLA. Alt başlıklar, tanımlar, neden-sonuç ilişkileri ve bol örnek olsun.
-                            """
-                            
+                        # --- GÜÇLENDİRİLMİŞ KAPSAMLI PROMPT ---
+                        not_prompt = f"""
+                        SEN ÇOK DETAYCI BİR {not_ders} KİTABI YAZARISIN.
+                        DERS: {not_ders}. SINIF: {not_sinif}. KONU: {not_konu}.
+                        
+                        GÖREVİN: Bu konuyu TEK BİR EKSİK BIRAKMADAN anlatmak.
+                        
+                        KURALLAR (ÇOK ÖNEMLİ):
+                        1. SADECE TANIM YAPIP GEÇME! Konunun tüm alt başlıklarını (İşlemler, Kurallar, İstisnalar) tek tek aç ve anlat.
+                        2. Örneğin Kareköklü İfadeler ise: Çarpma, Bölme, Toplama, Çıkarma, Eşlenik, İç İçe Kökler... Hepsi olacak.
+                        3. HER ALT BAŞLIK İÇİN en az 2 tane çözümlü örnek yaz.
+                        4. En sona "KARIŞIK VE ZORLUK DERECELİ TEST" (5 Soru) ekle.
+                        5. Sembolleri (√, ², π, ∫) DOĞRUDAN kullan.
+                        6. İçerik EN AZ 1200 KELİME olacak. Kısa yazarsan kabul edilmez.
+                        """
                         try:
-                            # Model GPT-4o olarak sabitlendi (Kalite için)
+                            # NOTLAR İÇİN ARTIK gpt-4o (KALİTELİ MODEL) KULLANIYORUZ
                             resp = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": not_prompt}], max_tokens=3000)
                             st.session_state.ozel_icerik = resp.choices[0].message.content
                             st.session_state.icerik_tipi = "Ders Notu"
@@ -365,17 +346,18 @@ with st.sidebar:
                     deduct_credit(st.session_state.username); st.toast("1 Hak kullanıldı", icon="🎫")
                     with st.spinner(f"{q_adet} adet {q_zorluk} soru hazırlanıyor..."):
                         
-                        # --- HİKAYELİ SORU PROMPTU ---
                         soru_prompt = f"""
                         GÖREV: {q_sinif} seviyesi {q_ders} dersi "{q_konu}" konusu.
+                        ADET: {q_adet} tane. ZORLUK: {q_zorluk}.
                         
                         YAPILACAK:
-                        1. Tam {q_adet} adet {q_zorluk} seviyesinde SORU yaz.
-                        2. Sadece işlem sorma! HİKAYELEŞTİRİLMİŞ, MANTIK MUHAKEME gerektiren PROBLEMLER olsun.
+                        1. Sadece işlem sorma! HİKAYELEŞTİRİLMİŞ, MANTIK MUHAKEME gerektiren PROBLEMLER olsun.
+                        2. Soruları 1., 2. diye numaralandır.
                         3. Her sorunun altına 'ÇÖZÜM:' başlığıyla detaylı cevabını yaz.
                         4. Sembolleri (√, ², π) doğrudan kullan. LaTeX (\\sqrt) ASLA KULLANMA.
                         """
                         try:
+                            # TESTLER DE ARTIK gpt-4o İLE HAZIRLANIYOR
                             resp = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": soru_prompt}], max_tokens=3000)
                             st.session_state.ozel_icerik = resp.choices[0].message.content
                             st.session_state.icerik_tipi = f"{q_zorluk} Seviye Test"
@@ -414,7 +396,6 @@ if st.session_state.ozel_icerik:
     st.markdown(f"""<div style="background-color:#fff9c4;padding:20px;border-radius:10px;color:#000080;font-size:18px;">{st.session_state.ozel_icerik}</div>""", unsafe_allow_html=True)
     
     try:
-        # GÜVENLİ PDF (LATEX TEMİZLENMİŞ)
         pdf_bytes = create_safe_pdf(f"OdevMatik {st.session_state.icerik_tipi}", st.session_state.ozel_icerik)
         st.download_button(
             label="📥 PDF Olarak İndir",
