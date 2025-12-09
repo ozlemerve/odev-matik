@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v67")
+cookie_manager = stx.CookieManager(key="auth_mgr_v65")
 
 # --- VERİTABANI ---
 def init_db():
@@ -149,29 +149,6 @@ def create_safe_pdf(title, content):
     pdf.multi_cell(0, 7, safe_content)
     return pdf.output(dest='S').encode('latin-1')
 
-# --- E-POSTA ---
-def send_verification_email(to_email, code):
-    try:
-        sender_email = st.secrets["EMAIL_ADDRESS"]
-        sender_password = st.secrets["EMAIL_PASSWORD"]
-    except: return False
-    subject = "ÖdevMatik Kod"
-    body = f"Kod: {code}"
-    msg = MIMEMultipart()
-    msg['From'] = f"ÖdevMatik <{sender_email}>"
-    msg['To'] = to_email
-    msg['Subject'] = subject
-    msg.attach(MIMEText(body, 'plain'))
-    try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        text = msg.as_string()
-        server.sendmail(sender_email, to_email, text)
-        server.quit()
-        return True
-    except: return False
-
 # --- CSS ---
 st.markdown("""
 <style>
@@ -192,23 +169,9 @@ st.markdown("""
         font-size: 1rem;
         margin-top: -5px;
     }
-    
-    .footer {
-        position: fixed;
-        left: 0;
-        bottom: 0;
-        width: 100%;
-        background-color: #f1f1f1;
-        color: #666;
-        text-align: center;
-        padding: 10px;
-        font-size: 12px;
-        border-top: 1px solid #ddd;
-    }
-    
-    /* Mobil düzeltme: Alt footer içeriğin üstüne binmesin diye sayfa sonuna boşluk */
-    .block-container {
-        padding-bottom: 60px;
+    .streamlit-expanderHeader {
+        font-weight: bold;
+        color: #0d47a1;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -216,7 +179,6 @@ st.markdown("""
 # --- OTURUM ---
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
-if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
 
 time.sleep(0.1)
@@ -238,7 +200,7 @@ else:
 client = OpenAI(api_key=api_key)
 
 # ==========================================
-# ÜST BAR
+# ÜST BAR (GİRİŞ/KAYIT)
 # ==========================================
 col_logo, col_auth = st.columns([5, 2])
 
@@ -248,7 +210,7 @@ with col_logo:
 
 with col_auth:
     if not st.session_state.logged_in:
-        # İSİM DÜZELTİLDİ: "Giriş ve Kayıt Ol"
+        # BAŞLIK DÜZELDİ: "Giriş ve Kayıt Ol"
         with st.expander("🔐 Giriş ve Kayıt Ol"):
             tab1, tab2 = st.tabs(["Giriş", "Kayıt"])
             with tab1:
@@ -269,25 +231,6 @@ with col_auth:
                     if st.form_submit_button("Kayıt Ol"):
                         if add_user(nu, np): st.success("Oldu! Giriş yap.");
                         else: st.error("Hata")
-            
-            if st.checkbox("Kodla Kayıt"):
-                 r_email_v = st.text_input("Email:", key="v_email")
-                 r_pass_v = st.text_input("Şifre:", type="password", key="v_pass")
-                 if st.button("Kod Gönder"):
-                     if "@" in r_email_v:
-                         code = str(random.randint(1000,9999))
-                         if send_verification_email(r_email_v, code):
-                             st.session_state.verification_code = code
-                             st.success("Kod yollandı!")
-                         else: st.error("Mail Hatası")
-                 
-                 if st.session_state.verification_code:
-                     kod_gir = st.text_input("Kodu Gir:")
-                     if st.button("Onayla"):
-                         if kod_gir == st.session_state.verification_code:
-                             if add_user(r_email_v, r_pass_v): st.success("Kayıt Başarılı! Giriş yap."); st.session_state.verification_code = None
-                             else: st.error("Hata")
-
     else:
         kredi = get_credit(st.session_state.username)
         st.info(f"👤 **{st.session_state.username.split('@')[0]}**")
@@ -352,6 +295,10 @@ if not st.session_state.logged_in:
 
 # --- SONUÇ ---
 if st.session_state.son_cevap:
+    # 💫 GÜZELLİKLER GERİ GELDİ
+    st.success("✅ Çözüm Başarıyla Hazırlandı!")
+    st.balloons()
+    
     clean_cevap = clean_latex(st.session_state.son_cevap)
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;padding:25px;font-family:'Patrick Hand',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{clean_cevap}</div>""", unsafe_allow_html=True)
     
@@ -409,17 +356,27 @@ else:
     if run:
         # GÖRSEL/METİN KONTROLÜ
         if not gorsel_veri and not metin_sorusu:
-            st.warning("Lütfen bir soru girin!")
+            st.warning("Lütfen bir soru gir!")
         else:
             can_proceed = False
+            # 1. KREDİ KONTROL (Üye)
             if st.session_state.logged_in:
                 if get_credit(st.session_state.username) > 0:
-                    deduct_credit(st.session_state.username); st.toast("Krediniz düştü", icon="🎫"); can_proceed = True
-                else: st.error("Kredin Bitti!")
+                    deduct_credit(st.session_state.username)
+                    can_proceed = True
+                else:
+                    st.error("Kredin bitti!")
+            # 2. MİSAFİR MODU
             else:
-                try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1)); can_proceed = True
-                except: can_proceed = True
+                if not guest_locked:
+                    try: 
+                        cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
+                        can_proceed = True
+                    except: can_proceed = True
+                else:
+                    st.error("Misafir hakkı doldu!")
 
+            # 3. İŞLEM BAŞLIYOR (ÖNCE ÇÖZ, SONRA ÇEREZLE)
             if can_proceed:
                 with st.spinner("Çözülüyor..."):
                     try:
@@ -452,7 +409,7 @@ else:
                         st.rerun()
                     except Exception as e: st.error(f"Hata: {e}")
 
-# --- YASAL UYARI (EN ALTTA, ORTALI) ---
+# --- YASAL UYARI ---
 st.markdown("""
 <div style='text-align: center; color: grey; font-size: 0.8rem; margin-top: 50px; padding-bottom: 20px;'>
     ⚠️ <b>Yasal Uyarı:</b> Bu uygulama yapay zeka desteklidir. Sonuçlar hatalı olabilir.<br>
