@@ -226,7 +226,7 @@ st.divider()
 # YAN MENÜ
 # ==========================================
 with st.sidebar:
-    st.title("🗂️ Panel")
+    st.title("🎓 Öğrenci Paneli")
     if st.button("🏠 Ana Ekran", use_container_width=True):
         st.session_state.son_cevap = None
         st.rerun()
