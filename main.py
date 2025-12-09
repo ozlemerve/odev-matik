@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_final_fix")
+cookie_manager = stx.CookieManager(key="auth_mgr_v58")
 
 # --- VERİTABANI ---
 def init_db():
@@ -180,7 +180,7 @@ client = OpenAI(api_key=api_key)
 col_logo, col_auth = st.columns([2, 1])
 with col_logo:
     st.markdown("<h1 style='margin-bottom:0;'>📝 ÖdevMatik</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color:grey;'>Eğitim Koçun Cebinde!</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color:grey;'>Hızlı Cevap Asistanı</p>", unsafe_allow_html=True)
 
 with col_auth:
     if not st.session_state.logged_in:
@@ -237,7 +237,7 @@ with st.sidebar:
                             try: st.image(base64.b64decode(img), caption="Soru", use_container_width=True)
                             except: pass
                         else: st.caption(q[:30])
-                        with st.popover("Cevap"): st.write(clean_latex(a))
+                        with st.popover("Cevabı Gör"): st.write(clean_latex(a))
                         st.divider()
                 else: st.caption("Yok.")
             except: pass
@@ -332,26 +332,27 @@ else:
         if can:
             with st.spinner("Çözülüyor..."):
                 try:
-                    # GÜÇLENDİRİLMİŞ PROMPT (GEOMETRİ VE DETAY İÇİN)
+                    # --- DİREKT CEVAP PROMPTU ---
                     prompt = """
-                    GÖREV: Öğrenciye özel ders öğretmeni gibi detaylı çözüm yap.
+                    GÖREV: SADECE CEVABI VE KISA İŞLEMİ VER.
                     
                     KURALLAR:
-                    1. Asla LaTeX kodu kullanma. Karekök için 'kök()', üs için '^' kullan.
-                    2. Eğer resimde GEOMETRİ veya ŞEKİL varsa: Şekli görmeden çözemeyeceğini SÖYLEME. Gördüğün kadarıyla varsayım yap ve çözmeye çalış.
-                    3. Adım adım, açıklayıcı ol.
-                    4. Sonucu net belirt.
+                    1. Asla uzun uzun anlatma. "Merhaba", "Şöyle yapalım" deme.
+                    2. En fazla 1-2 satır işlem yap.
+                    3. Sonucu net yaz.
+                    4. Asla LaTeX kodu (\\frac, \\sqrt) kullanma. Kök, Bölü, Üssü diye yaz veya sembol (√, /) kullan.
+                    5. Şekil varsa: Gördüğün kadarıyla varsayım yapıp direkt sonucu bul.
                     """
                     
                     if gorsel_veri:
-                        model = "gpt-4o"
+                        model = "gpt-4o" # Görsel için mecbur kaliteli model
                         img = base64.b64encode(gorsel_veri).decode('utf-8')
                         msgs = [{"role": "system", "content": prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}]
                     else:
-                        model = "gpt-4o-mini"
+                        model = "gpt-4o-mini" # Yazı için ucuz model
                         msgs = [{"role": "system", "content": prompt}, {"role": "user", "content": f"Soru: {metin_sorusu}"}]
 
-                    resp = client.chat.completions.create(model=model, messages=msgs, max_tokens=1000)
+                    resp = client.chat.completions.create(model=model, messages=msgs, max_tokens=500)
                     ans = resp.choices[0].message.content
                     
                     if st.session_state.logged_in:
