@@ -5,6 +5,9 @@ import random
 import urllib.parse
 import sqlite3
 import time
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import extra_streamlit_components as stx
 import datetime
 from fpdf import FPDF
@@ -21,7 +24,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v58")
+cookie_manager = stx.CookieManager(key="auth_mgr_v59")
 
 # --- VERİTABANI ---
 def init_db():
@@ -30,6 +33,7 @@ def init_db():
     c.execute('CREATE TABLE IF NOT EXISTS usersTable (username TEXT PRIMARY KEY, password TEXT, credit INTEGER)')
     c.execute('''CREATE TABLE IF NOT EXISTS historyTable_v2 
                  (username TEXT, question TEXT, answer TEXT, image_data TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+    c.execute('CREATE TABLE IF NOT EXISTS feedbackTable (username TEXT, message TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)')
     conn.commit()
     conn.close()
 
@@ -92,6 +96,13 @@ def get_total_solved(username):
     except: count = 0
     conn.close()
     return count
+
+def save_feedback(username, message):
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute('INSERT INTO feedbackTable (username, message) VALUES (?, ?)', (username, message))
+    conn.commit()
+    conn.close()
 
 init_db()
 
@@ -180,7 +191,7 @@ client = OpenAI(api_key=api_key)
 col_logo, col_auth = st.columns([2, 1])
 with col_logo:
     st.markdown("<h1 style='margin-bottom:0;'>📝 ÖdevMatik</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color:grey;'>Hızlı Cevap Asistanı</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color:grey;'>Hızlı ve Doğru Çözüm</p>", unsafe_allow_html=True)
 
 with col_auth:
     if not st.session_state.logged_in:
@@ -332,27 +343,29 @@ else:
         if can:
             with st.spinner("Çözülüyor..."):
                 try:
-                    # --- DİREKT CEVAP PROMPTU ---
+                    # PROMPT GÜNCELLEMESİ: HATA YAPMA ŞANSI YOK
                     prompt = """
-                    GÖREV: SADECE CEVABI VE KISA İŞLEMİ VER.
+                    GÖREV: Öğrencinin sorduğu soruyu matematik öğretmeni gibi çöz.
                     
                     KURALLAR:
-                    1. Asla uzun uzun anlatma. "Merhaba", "Şöyle yapalım" deme.
-                    2. En fazla 1-2 satır işlem yap.
-                    3. Sonucu net yaz.
-                    4. Asla LaTeX kodu (\\frac, \\sqrt) kullanma. Kök, Bölü, Üssü diye yaz veya sembol (√, /) kullan.
-                    5. Şekil varsa: Gördüğün kadarıyla varsayım yapıp direkt sonucu bul.
+                    1. Önce işlemi kendi içinde doğrula.
+                    2. Sonra cevabı ve kısa çözüm yolunu yaz.
+                    3. Asla LaTeX kodu kullanma (\\frac, \\sqrt YASAK).
+                    4. Şekil varsa, gördüğün kadarıyla en mantıklı çözümü üret.
+                    5. Net ve kesin konuş.
                     """
                     
+                    # BURADA DEĞİŞİKLİK YAPILDI: ARTIK HER DURUMDA GPT-4o KULLANILIYOR
+                    # Yazı olsa bile GPT-4o (Ferrari) kullanacak. Hata payı sıfıra yakın.
+                    model = "gpt-4o"
+                    
                     if gorsel_veri:
-                        model = "gpt-4o" # Görsel için mecbur kaliteli model
                         img = base64.b64encode(gorsel_veri).decode('utf-8')
                         msgs = [{"role": "system", "content": prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}]
                     else:
-                        model = "gpt-4o-mini" # Yazı için ucuz model
                         msgs = [{"role": "system", "content": prompt}, {"role": "user", "content": f"Soru: {metin_sorusu}"}]
 
-                    resp = client.chat.completions.create(model=model, messages=msgs, max_tokens=500)
+                    resp = client.chat.completions.create(model=model, messages=msgs, max_tokens=1000)
                     ans = resp.choices[0].message.content
                     
                     if st.session_state.logged_in:
