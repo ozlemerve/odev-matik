@@ -236,7 +236,7 @@ with st.sidebar:
         total = get_total_solved(st.session_state.username)
         c1, c2 = st.columns(2)
         with c1: st.markdown(f"<div class='stat-box'><div class='stat-title'>Çözülen</div><div class='stat-value'>{total}</div></div>", unsafe_allow_html=True)
-        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Hak</div><div class='stat-value'>{get_credit(st.session_state.username)}</div></div>", unsafe_allow_html=True)
+        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Kalan</div><div class='stat-value'>{get_credit(st.session_state.username)}</div></div>", unsafe_allow_html=True)
         
         with st.expander("📜 Geçmiş"):
             try:
