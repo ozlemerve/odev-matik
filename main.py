@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v65")
+cookie_manager = stx.CookieManager(key="auth_mgr_v66")
 
 # --- VERİTABANI ---
 def init_db():
@@ -149,29 +149,6 @@ def create_safe_pdf(title, content):
     pdf.multi_cell(0, 7, safe_content)
     return pdf.output(dest='S').encode('latin-1')
 
-# --- E-POSTA ---
-def send_verification_email(to_email, code):
-    try:
-        sender_email = st.secrets["EMAIL_ADDRESS"]
-        sender_password = st.secrets["EMAIL_PASSWORD"]
-    except: return False
-    subject = "ÖdevMatik Kod"
-    body = f"Kod: {code}"
-    msg = MIMEMultipart()
-    msg['From'] = f"ÖdevMatik <{sender_email}>"
-    msg['To'] = to_email
-    msg['Subject'] = subject
-    msg.attach(MIMEText(body, 'plain'))
-    try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        text = msg.as_string()
-        server.sendmail(sender_email, to_email, text)
-        server.quit()
-        return True
-    except: return False
-
 # --- CSS ---
 st.markdown("""
 <style>
@@ -192,19 +169,12 @@ st.markdown("""
         font-size: 1rem;
         margin-top: -5px;
     }
-    
-    /* GİRİŞ KUTUSU STİLİ */
-    .streamlit-expanderHeader {
-        font-weight: bold;
-        color: #0d47a1;
-    }
 </style>
 """, unsafe_allow_html=True)
 
 # --- OTURUM ---
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
-if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
 
 time.sleep(0.1)
@@ -226,9 +196,8 @@ else:
 client = OpenAI(api_key=api_key)
 
 # ==========================================
-# ÜST BAR (GİRİŞ/KAYIT) - DÜZELTİLDİ
+# ÜST BAR
 # ==========================================
-# Sol tarafa daha çok alan (5), sağ tarafa daha az (2) verdik.
 col_logo, col_auth = st.columns([5, 2])
 
 with col_logo:
@@ -237,8 +206,7 @@ with col_logo:
 
 with col_auth:
     if not st.session_state.logged_in:
-        # İSİM DÜZELTİLDİ: "Giriş / Kayıt"
-        with st.expander("🔐 Giriş / Kayıt"):
+        with st.expander("🔐 Kayıt Ol"):
             tab1, tab2 = st.tabs(["Giriş", "Kayıt"])
             with tab1:
                 with st.form("l_form"):
@@ -258,26 +226,6 @@ with col_auth:
                     if st.form_submit_button("Kayıt Ol"):
                         if add_user(nu, np): st.success("Oldu! Giriş yap.");
                         else: st.error("Hata")
-            
-            # KOD GÖNDERME BUTONU FORMDAN DIŞARI ALINDI (HATAYI ÖNLER)
-            if st.checkbox("Doğrulama Kodu ile Kayıt"):
-                 r_email_v = st.text_input("Email:", key="v_email")
-                 r_pass_v = st.text_input("Şifre:", type="password", key="v_pass")
-                 if st.button("Kod Gönder"):
-                     if "@" in r_email_v:
-                         code = str(random.randint(1000,9999))
-                         if send_verification_email(r_email_v, code):
-                             st.session_state.verification_code = code
-                             st.success("Kod yollandı!")
-                         else: st.error("Mail Hatası")
-                 
-                 if st.session_state.verification_code:
-                     kod_gir = st.text_input("Kodu Gir:")
-                     if st.button("Onayla"):
-                         if kod_gir == st.session_state.verification_code:
-                             if add_user(r_email_v, r_pass_v): st.success("Kayıt Başarılı! Giriş yap."); st.session_state.verification_code = None
-                             else: st.error("Hata")
-
     else:
         kredi = get_credit(st.session_state.username)
         st.info(f"👤 **{st.session_state.username.split('@')[0]}**")
@@ -297,15 +245,9 @@ with st.sidebar:
     
     if st.session_state.logged_in:
         total = get_total_solved(st.session_state.username)
-        kredi = get_credit(st.session_state.username)
-        
-        progress_val = min(1.0, kredi / 100)
-        st.write(f"**Kalan Kredi Durumu:**")
-        st.progress(progress_val)
-        
         c1, c2 = st.columns(2)
         with c1: st.markdown(f"<div class='stat-box'><div class='stat-title'>Çözülen</div><div class='stat-value'>{total}</div></div>", unsafe_allow_html=True)
-        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Kalan</div><div class='stat-value'>{kredi}</div></div>", unsafe_allow_html=True)
+        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Kalan</div><div class='stat-value'>{get_credit(st.session_state.username)}</div></div>", unsafe_allow_html=True)
         
         with st.expander("📜 Geçmiş"):
             try:
@@ -348,8 +290,6 @@ if not st.session_state.logged_in:
 
 # --- SONUÇ ---
 if st.session_state.son_cevap:
-    st.success("✅ Çözüm Başarıyla Hazırlandı!")
-    
     clean_cevap = clean_latex(st.session_state.son_cevap)
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;padding:25px;font-family:'Patrick Hand',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{clean_cevap}</div>""", unsafe_allow_html=True)
     
@@ -389,7 +329,7 @@ else:
     if st.session_state.aktif_mod == "Galeri":
         st.info("📂 **Galeriden Seç**")
         up = st.file_uploader("", type=["jpg","png","jpeg"], label_visibility="collapsed")
-        if up: gorsel_veri = up.getvalue(); 
+        if up: gorsel_veri = up.getvalue()
         if st.button("Çöz ✍️", type="primary", use_container_width=True): run = True
         
     elif st.session_state.aktif_mod == "Kamera":
@@ -405,45 +345,63 @@ else:
             if st.form_submit_button("Çöz ✍️", type="primary", use_container_width=True): run = True
 
     if run:
-        # EKSİK OLANI DÜZELTTİM: ARTIK BUTONA BASINCA ÇALIŞACAK
-        can = False
-        if st.session_state.logged_in:
-            if get_credit(st.session_state.username) > 0:
-                deduct_credit(st.session_state.username); can = True
-            else: st.error("Kredin Bitti!")
+        # GÖRSEL/METİN KONTROLÜ
+        if not gorsel_veri and not metin_sorusu:
+            st.warning("Lütfen bir soru gir!")
         else:
-            try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1)); can = True
-            except: 
-                can = True # Çerez hatası olsa da misafiri üzme, çöz.
+            can_proceed = False
+            # 1. KREDİ KONTROL (Üye)
+            if st.session_state.logged_in:
+                if get_credit(st.session_state.username) > 0:
+                    deduct_credit(st.session_state.username)
+                    can_proceed = True
+                else:
+                    st.error("Kredin bitti!")
+            # 2. MİSAFİR MODU
+            else:
+                if not guest_locked:
+                    can_proceed = True
+                else:
+                    st.error("Misafir hakkı doldu!")
 
-        if can:
-            with st.spinner("Çözülüyor..."):
-                try:
-                    prompt = """
-                    GÖREV: Öğrencinin sorduğu soruyu matematik öğretmeni gibi çöz.
-                    KURALLAR:
-                    1. Önce işlemi kendi içinde doğrula.
-                    2. Sonra cevabı ve kısa çözüm yolunu yaz.
-                    3. Asla LaTeX kodu kullanma (\\frac, \\sqrt YASAK).
-                    4. Şekil varsa, gördüğün kadarıyla en mantıklı çözümü üret.
-                    5. Net ve kesin konuş.
-                    """
-                    
-                    model = "gpt-4o"
-                    
-                    if gorsel_veri:
-                        img = base64.b64encode(gorsel_veri).decode('utf-8')
-                        msgs = [{"role": "system", "content": prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}]
-                    else:
-                        msgs = [{"role": "system", "content": prompt}, {"role": "user", "content": f"Soru: {metin_sorusu}"}]
+            # 3. İŞLEM BAŞLIYOR (ÖNCE ÇÖZ, SONRA ÇEREZLE)
+            if can_proceed:
+                with st.spinner("Çözülüyor..."):
+                    try:
+                        prompt = """
+                        GÖREV: Öğrencinin sorduğu soruyu matematik öğretmeni gibi çöz.
+                        KURALLAR:
+                        1. Önce işlemi kendi içinde doğrula.
+                        2. Sonra cevabı ve kısa çözüm yolunu yaz.
+                        3. Asla LaTeX kodu kullanma (\\frac, \\sqrt YASAK).
+                        4. Şekil varsa, gördüğün kadarıyla en mantıklı çözümü üret.
+                        5. Net ve kesin konuş.
+                        """
+                        
+                        model = "gpt-4o"
+                        
+                        if gorsel_veri:
+                            img = base64.b64encode(gorsel_veri).decode('utf-8')
+                            msgs = [{"role": "system", "content": prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}]
+                        else:
+                            msgs = [{"role": "system", "content": prompt}, {"role": "user", "content": f"Soru: {metin_sorusu}"}]
 
-                    resp = client.chat.completions.create(model=model, messages=msgs, max_tokens=1000)
-                    ans = resp.choices[0].message.content
-                    
-                    if st.session_state.logged_in:
-                        img_save = base64.b64encode(gorsel_veri).decode('utf-8') if gorsel_veri else None
-                        save_history(st.session_state.username, "Soru", ans, img_save)
-                    
-                    st.session_state.son_cevap = ans
-                    st.rerun()
-                except Exception as e: st.error(f"Hata: {e}")
+                        resp = client.chat.completions.create(model=model, messages=msgs, max_tokens=1000)
+                        ans = resp.choices[0].message.content
+                        
+                        # VERİTABANI KAYIT
+                        if st.session_state.logged_in:
+                            img_save = base64.b64encode(gorsel_veri).decode('utf-8') if gorsel_veri else None
+                            save_history(st.session_state.username, "Soru", ans, img_save)
+                        
+                        # CEVABI HAFIZAYA AL
+                        st.session_state.son_cevap = ans
+                        
+                        # MİSAFİR İSE ÇEREZİ ŞİMDİ YAZ
+                        if not st.session_state.logged_in:
+                            try:
+                                cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
+                            except: pass
+                        
+                        st.rerun()
+                    except Exception as e: st.error(f"Hata: {e}")
