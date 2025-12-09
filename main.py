@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v61")
+cookie_manager = stx.CookieManager(key="auth_mgr_v62")
 
 # --- VERİTABANI ---
 def init_db():
@@ -30,6 +30,7 @@ def init_db():
     c.execute('CREATE TABLE IF NOT EXISTS usersTable (username TEXT PRIMARY KEY, password TEXT, credit INTEGER)')
     c.execute('''CREATE TABLE IF NOT EXISTS historyTable_v2 
                  (username TEXT, question TEXT, answer TEXT, image_data TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+    c.execute('CREATE TABLE IF NOT EXISTS feedbackTable (username TEXT, message TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)')
     conn.commit()
     conn.close()
 
@@ -93,6 +94,13 @@ def get_total_solved(username):
     conn.close()
     return count
 
+def save_feedback(username, message):
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute('INSERT INTO feedbackTable (username, message) VALUES (?, ?)', (username, message))
+    conn.commit()
+    conn.close()
+
 init_db()
 
 # --- TEMİZLEYİCİ ---
@@ -141,37 +149,26 @@ def create_safe_pdf(title, content):
     pdf.multi_cell(0, 7, safe_content)
     return pdf.output(dest='S').encode('latin-1')
 
-# --- CSS (MAKYAJ) ---
+# --- CSS ---
 st.markdown("""
 <style>
-    /* Butonlar */
-    div.stButton > button { width: 100%; border-radius: 12px; height: 55px; font-weight: 800; font-size: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.2s; }
-    div.stButton > button:hover { transform: scale(1.02); }
-    
-    /* WhatsApp ve Mail */
-    a[href*="whatsapp"] button { color: #25D366 !important; border-color: #25D366 !important; }
-    a[href^="mailto"] button { color: #0078D4 !important; border-color: #0078D4 !important; }
-    
-    /* İstatistik Kutuları */
+    div.stButton > button { width: 100%; border-radius: 10px; height: 50px; font-weight: bold; }
     .stat-box { background-color: #e3f2fd; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 10px; border: 1px solid #90caf9; }
     .stat-title { font-size: 14px; color: #555; }
     .stat-value { font-size: 24px; font-weight: bold; color: #1565c0; }
     
-    /* Başlık Stili */
+    /* Logo Başlık Ayarı */
     .brand-title {
-        text-align: center;
-        font-size: 3rem;
+        font-size: 2.2rem;
         font-weight: 800;
-        color: #0d47a1; /* Lacivert */
-        text-shadow: 2px 2px 0px #ffca28; /* Turuncu Gölge */
+        color: #0d47a1;
         margin-bottom: 0px;
-        font-family: 'Helvetica', sans-serif;
+        margin-top: -20px;
     }
     .brand-subtitle {
-        text-align: center;
         color: #666;
-        font-size: 1.1rem;
-        margin-top: -10px;
+        font-size: 1rem;
+        margin-top: -5px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -200,22 +197,24 @@ else:
 client = OpenAI(api_key=api_key)
 
 # ==========================================
-# ÜST BAR (LOGO VE GİRİŞ)
+# ÜST BAR (DÜZELTİLDİ: 3'e 1 ORAN)
 # ==========================================
-col_logo, col_auth = st.columns([2, 1])
+# Logoya %75, Girişe %25 yer veriyoruz ki giriş sağa sıkışsın.
+col_logo, col_auth = st.columns([3, 1])
+
 with col_logo:
-    # 🎨 YENİ LOGO TASARIMI
     st.markdown("<div class='brand-title'>📝 ÖdevMatik</div>", unsafe_allow_html=True)
-    st.markdown("<div class='brand-subtitle'>Yeni Nesil Eğitim Asistanı</div>", unsafe_allow_html=True)
+    st.markdown("<div class='brand-subtitle'>Yeni Nesil Asistan</div>", unsafe_allow_html=True)
 
 with col_auth:
     if not st.session_state.logged_in:
-        with st.expander("🔐 Giriş"):
+        # İSİM DEĞİŞTİ: Giriş / Kayıt
+        with st.expander("🔐 Giriş / Kayıt"):
             tab1, tab2 = st.tabs(["Giriş", "Kayıt"])
             with tab1:
                 with st.form("l_form"):
-                    u = st.text_input("Email")
-                    p = st.text_input("Şifre", type="password")
+                    u = st.text_input("Email", label_visibility="collapsed", placeholder="Email")
+                    p = st.text_input("Şifre", type="password", label_visibility="collapsed", placeholder="Şifre")
                     if st.form_submit_button("Gir"):
                         if login_user(u, p):
                             st.session_state.logged_in = True
@@ -225,20 +224,20 @@ with col_auth:
                         else: st.error("Hata")
             with tab2:
                 with st.form("r_form"):
-                    nu = st.text_input("Email")
-                    np = st.text_input("Şifre", type="password")
+                    nu = st.text_input("Email", label_visibility="collapsed", placeholder="Email")
+                    np = st.text_input("Şifre", type="password", label_visibility="collapsed", placeholder="Şifre")
                     if st.form_submit_button("Kayıt Ol"):
-                        if add_user(nu, np): st.success("Kayıt oldun! Giriş yap.");
+                        if add_user(nu, np): st.success("Oldu! Giriş yap.");
                         else: st.error("Hata")
     else:
         kredi = get_credit(st.session_state.username)
         st.info(f"👤 **{st.session_state.username.split('@')[0]}**")
-        st.caption(f"🎫 Kalan Kredi: **{kredi}**")
+        st.caption(f"🎫 Kalan: **{kredi}**")
 
 st.divider()
 
 # ==========================================
-# YAN MENÜ (İSTATİSTİK & İLERLEME)
+# YAN MENÜ
 # ==========================================
 with st.sidebar:
     st.title("🎓 Öğrenci Paneli")
@@ -249,17 +248,9 @@ with st.sidebar:
     
     if st.session_state.logged_in:
         total = get_total_solved(st.session_state.username)
-        kredi = get_credit(st.session_state.username)
-        
-        # 📊 İLERLEME ÇUBUĞU (YENİ)
-        # 100 üzerinden hesaplıyoruz.
-        progress_val = min(1.0, kredi / 100)
-        st.write(f"**Kalan Kredi Durumu:**")
-        st.progress(progress_val)
-        
         c1, c2 = st.columns(2)
         with c1: st.markdown(f"<div class='stat-box'><div class='stat-title'>Çözülen</div><div class='stat-value'>{total}</div></div>", unsafe_allow_html=True)
-        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Kalan</div><div class='stat-value'>{kredi}</div></div>", unsafe_allow_html=True)
+        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Kalan</div><div class='stat-value'>{get_credit(st.session_state.username)}</div></div>", unsafe_allow_html=True)
         
         with st.expander("📜 Geçmiş"):
             try:
@@ -301,11 +292,6 @@ if not st.session_state.logged_in:
 
 # --- SONUÇ ---
 if st.session_state.son_cevap:
-    # 💫 BAŞARI KARTI (YENİ)
-    st.success("✅ Çözüm Başarıyla Hazırlandı!")
-    # 🎉 KONFETİ (YENİ)
-    st.balloons()
-    
     clean_cevap = clean_latex(st.session_state.son_cevap)
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;padding:25px;font-family:'Patrick Hand',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{clean_cevap}</div>""", unsafe_allow_html=True)
     
@@ -345,13 +331,16 @@ else:
     if st.session_state.aktif_mod == "Galeri":
         st.info("📂 **Galeriden Seç**")
         up = st.file_uploader("", type=["jpg","png","jpeg"], label_visibility="collapsed")
-        if up: gorsel_veri = up.getvalue(); 
+        # GÖRSEL YÜKLEME KONTROLÜ DÜZELTİLDİ
+        if up: gorsel_veri = up.getvalue()
         if st.button("Çöz ✍️", type="primary", use_container_width=True): run = True
+        
     elif st.session_state.aktif_mod == "Kamera":
         st.info("📸 **Fotoğraf Çek**")
-        cam = st.camera_input("Kamera")
-        if cam: gorsel_veri = cam.getvalue(); 
+        cam = st.camera_input("Kamerayı aç")
+        if cam: gorsel_veri = cam.getvalue()
         if st.button("Çöz ✍️", type="primary", use_container_width=True): run = True
+        
     elif st.session_state.aktif_mod == "Yaz":
         st.info("⌨️ **Soruyu Yaz**")
         with st.form("txt"):
@@ -359,44 +348,47 @@ else:
             if st.form_submit_button("Çöz ✍️", type="primary", use_container_width=True): run = True
 
     if run:
-        can = False
-        if st.session_state.logged_in:
-            if get_credit(st.session_state.username) > 0:
-                deduct_credit(st.session_state.username); can = True
-                # Toast yerine artık yukarıda Success ve Balon çıkacak
-            else: st.error("Bitti!")
+        # GÖRSEL VEYA METİN VAR MI KONTROLÜ
+        if not gorsel_veri and not metin_sorusu:
+            st.warning("Lütfen bir soru girin!")
         else:
-            try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1)); can = True
-            except: pass
+            can = False
+            if st.session_state.logged_in:
+                if get_credit(st.session_state.username) > 0:
+                    deduct_credit(st.session_state.username); st.toast("Hakkın düştü", icon="🎫"); can = True
+                else: st.error("Bitti!")
+            else:
+                try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1)); can = True
+                except: pass
 
-        if can:
-            with st.spinner("Çözülüyor..."):
-                try:
-                    prompt = """
-                    GÖREV: Öğrencinin sorduğu soruyu matematik öğretmeni gibi çöz.
-                    KURALLAR:
-                    1. Önce işlemi kendi içinde doğrula.
-                    2. Sonra cevabı ve kısa çözüm yolunu yaz.
-                    3. Asla LaTeX kodu kullanma (\\frac, \\sqrt YASAK).
-                    4. Şekil varsa, gördüğün kadarıyla en mantıklı çözümü üret.
-                    5. Net ve kesin konuş.
-                    """
-                    
-                    model = "gpt-4o"
-                    
-                    if gorsel_veri:
-                        img = base64.b64encode(gorsel_veri).decode('utf-8')
-                        msgs = [{"role": "system", "content": prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}]
-                    else:
-                        msgs = [{"role": "system", "content": prompt}, {"role": "user", "content": f"Soru: {metin_sorusu}"}]
+            if can:
+                with st.spinner("Çözülüyor..."):
+                    try:
+                        prompt = """
+                        GÖREV: Öğrencinin sorduğu soruyu matematik öğretmeni gibi çöz.
+                        KURALLAR:
+                        1. Önce işlemi kendi içinde doğrula.
+                        2. Sonra cevabı ve kısa çözüm yolunu yaz.
+                        3. Asla LaTeX kodu kullanma (\\frac, \\sqrt YASAK).
+                        4. Şekil varsa, gördüğün kadarıyla en mantıklı çözümü üret.
+                        5. Net ve kesin konuş.
+                        """
+                        
+                        model = "gpt-4o"
+                        
+                        if gorsel_veri:
+                            img = base64.b64encode(gorsel_veri).decode('utf-8')
+                            msgs = [{"role": "system", "content": prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}]
+                        else:
+                            msgs = [{"role": "system", "content": prompt}, {"role": "user", "content": f"Soru: {metin_sorusu}"}]
 
-                    resp = client.chat.completions.create(model=model, messages=msgs, max_tokens=1000)
-                    ans = resp.choices[0].message.content
-                    
-                    if st.session_state.logged_in:
-                        img_save = base64.b64encode(gorsel_veri).decode('utf-8') if gorsel_veri else None
-                        save_history(st.session_state.username, "Soru", ans, img_save)
-                    
-                    st.session_state.son_cevap = ans
-                    st.rerun()
-                except Exception as e: st.error(f"Hata: {e}")
+                        resp = client.chat.completions.create(model=model, messages=msgs, max_tokens=1000)
+                        ans = resp.choices[0].message.content
+                        
+                        if st.session_state.logged_in:
+                            img_save = base64.b64encode(gorsel_veri).decode('utf-8') if gorsel_veri else None
+                            save_history(st.session_state.username, "Soru", ans, img_save)
+                        
+                        st.session_state.son_cevap = ans
+                        st.rerun()
+                    except Exception as e: st.error(f"Hata: {e}")
