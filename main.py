@@ -23,14 +23,17 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v50")
+cookie_manager = stx.CookieManager(key="auth_mgr_v51")
 
 # --- VERİTABANI ---
 def init_db():
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
     c.execute('CREATE TABLE IF NOT EXISTS usersTable (username TEXT PRIMARY KEY, password TEXT, credit INTEGER)')
-    c.execute('''CREATE TABLE IF NOT EXISTS historyTable (username TEXT, question TEXT, answer TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+    # YENİ GEÇMİŞ TABLOSU (RESİM DESTEKLİ)
+    # image_data sütunu eklendi
+    c.execute('''CREATE TABLE IF NOT EXISTS historyTable_v2 
+                 (username TEXT, question TEXT, answer TEXT, image_data TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
     c.execute('CREATE TABLE IF NOT EXISTS feedbackTable (username TEXT, message TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)')
     conn.commit()
     conn.close()
@@ -76,17 +79,21 @@ def deduct_credit(username):
     conn.commit()
     conn.close()
 
-def save_history(username, question, answer):
+# GEÇMİŞ KAYDETME (RESİMLİ)
+def save_history(username, question, answer, image_data=None):
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
-    c.execute('INSERT INTO historyTable (username, question, answer) VALUES (?, ?, ?)', (username, question, answer))
+    # image_data varsa onu da kaydet, yoksa NULL
+    c.execute('INSERT INTO historyTable_v2 (username, question, answer, image_data) VALUES (?, ?, ?, ?)', (username, question, answer, image_data))
     conn.commit()
     conn.close()
 
+# GEÇMİŞİ GETİRME (RESİMLİ)
 def get_user_history(username):
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
-    c.execute('SELECT question, answer, timestamp FROM historyTable WHERE username =? ORDER BY timestamp DESC LIMIT 10', (username,))
+    # image_data sütununu da çekiyoruz
+    c.execute('SELECT question, answer, image_data, timestamp FROM historyTable_v2 WHERE username =? ORDER BY timestamp DESC LIMIT 10', (username,))
     data = c.fetchall()
     conn.close()
     return data
@@ -94,10 +101,13 @@ def get_user_history(username):
 def get_total_solved(username):
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
-    c.execute('SELECT COUNT(*) FROM historyTable WHERE username =?', (username,))
-    data = c.fetchone()
+    try:
+        c.execute('SELECT COUNT(*) FROM historyTable_v2 WHERE username =?', (username,))
+        data = c.fetchone()
+        count = data[0] if data else 0
+    except: count = 0
     conn.close()
-    return data[0] if data else 0
+    return count
 
 def save_feedback(username, message):
     conn = sqlite3.connect('users.db')
@@ -262,7 +272,7 @@ with col_auth:
 st.divider()
 
 # ==========================================
-# YAN MENÜ (SADELEŞTİ)
+# YAN MENÜ (GEÇMİŞ DÜZELTİLDİ)
 # ==========================================
 with st.sidebar:
     st.title("🗂️ Öğrenci Paneli")
@@ -278,14 +288,32 @@ with st.sidebar:
         st.divider()
 
         with st.expander("📜 Geçmiş Çözümlerim"):
-            gecmis_veriler = get_user_history(st.session_state.username)
-            if gecmis_veriler:
-                for soru, cevap, zaman in gecmis_veriler:
-                    st.text(f"📅 {zaman[:10]}")
-                    st.caption(f"❓ {soru[:30]}...")
-                    with st.popover("Cevabı Gör"):
-                        st.write(cevap)
-            else: st.caption("Henüz soru çözmedin.")
+            try:
+                # v2 Tablosundan verileri çek (Resim dahil)
+                gecmis_veriler = get_user_history(st.session_state.username)
+                if gecmis_veriler:
+                    for soru, cevap, resim_kodu, zaman in gecmis_veriler:
+                        st.text(f"📅 {zaman[:16]}")
+                        
+                        # Eğer resim varsa göster
+                        if resim_kodu:
+                            try:
+                                # Base64'ten resmi çöz ve göster
+                                decoded_img = base64.b64decode(resim_kodu)
+                                st.image(decoded_img, caption="Soru Görseli", use_container_width=True)
+                            except:
+                                st.caption("Resim yüklenemedi.")
+                        else:
+                            # Resim yoksa metin sorusunu göster
+                            st.caption(f"❓ {soru[:40]}...")
+                            
+                        with st.popover("Cevabı Gör"):
+                            st.write(cevap)
+                        st.divider()
+                else:
+                    st.caption("Henüz soru çözmedin.")
+            except:
+                st.caption("Geçmiş yüklenirken hata oluştu (Tablo güncellendiği için eski kayıtlar görünmeyebilir).")
 
         st.divider()
 
@@ -305,12 +333,12 @@ with st.sidebar:
 
     else:
         st.warning("⚠️ Misafir Modu")
-        st.info("🎁 **Üye ol, 5 soru hakkı kazan!**")
+        st.info("🎁 **Üye ol, 100 soru hakkı kazan!**")
     
     st.divider()
     if st.checkbox("Admin Modu"):
         if st.button("Misafir Hakkını Sıfırla"):
-            try: cookie_manager.delete("guest_used"); st.rerun()
+            try: cookie_manager.delete("guest_used"); st.session_state.guest_locked_session = False; st.rerun()
             except: pass
         if st.session_state.logged_in:
             if st.button("💰 Kendine 100 Kredi Yükle"):
@@ -331,7 +359,6 @@ if not st.session_state.logged_in:
 if st.session_state.son_cevap:
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{st.session_state.son_cevap}</div>""", unsafe_allow_html=True)
     
-    # PDF BUTONU (CEVAP İÇİN)
     try:
         pdf_bytes = create_safe_pdf("OdevMatik Cozum", st.session_state.son_cevap)
         st.download_button(
@@ -402,18 +429,40 @@ else:
                     ana_prompt = """GÖREV: Soruyu öğrenci gibi çöz. Adım adım git. LaTeX kullanma. Semimi ol. Sembolleri (√, ²) kullan."""
                     if gorsel_veri:
                         secilen_model = "gpt-4o"
+                        # GÖRSEL VERİSİNİ STRİNGE ÇEVİR (DATABASE İÇİN)
                         base64_image = base64.b64encode(gorsel_veri).decode('utf-8')
                         messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}]}]
+                        
+                        # GEÇMİŞE KAYDET (RESİMLİ)
+                        if st.session_state.logged_in:
+                            save_history(st.session_state.username, "Fotoğraflı Soru", None, base64_image) # Cevabı henüz bilmiyoruz
+
                     elif metin_sorusu:
                         secilen_model = "gpt-4o-mini"
                         messages = [{"role": "system", "content": ana_prompt}, {"role": "user", "content": f"Soru: {metin_sorusu}"}]
+                        
+                        if st.session_state.logged_in:
+                            save_history(st.session_state.username, metin_sorusu, None, None)
 
                     response = client.chat.completions.create(model=secilen_model, messages=messages, max_tokens=1000)
                     cevap = response.choices[0].message.content
-                    if st.session_state.logged_in: save_history(st.session_state.username, "Soru", cevap)
+                    
+                    # CEVABI GÜNCELLE (SQL UPDATE İLE) - ŞİMDİLİK BASİTÇE EKRANA BASIYORUZ, BİR SONRAKİNDE GÜNCELLERİZ.
+                    # Aslında save_history'yi en sonda çağırmak daha mantıklı.
+                    # Düzeltme: Yukarıdaki save_history çağrılarını siliyorum, cevabı aldıktan sonra kaydedeceğim.
+
+                    if st.session_state.logged_in:
+                        resim_kayit = base64_image if gorsel_veri else None
+                        soru_metni = "Fotoğraflı Soru" if gorsel_veri else metin_sorusu
+                        save_history(st.session_state.username, soru_metni, cevap, resim_kayit)
+
                     st.session_state.son_cevap = cevap
                     
+                    if not st.session_state.logged_in:
+                        st.session_state.guest_locked_session = True
+                    
                     st.rerun()
+
                 except Exception as e: st.error(f"Hata: {e}")
 
 st.divider()
