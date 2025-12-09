@@ -218,7 +218,7 @@ with col_auth:
     else:
         kredi = get_credit(st.session_state.username)
         st.info(f"👤 **{st.session_state.username.split('@')[0]}**")
-        st.caption(f"🎫 Kalan: **{kredi}**")
+        st.caption(f"🎫 Hak: **{kredi}**")
 
 st.divider()
 
