@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v68")
+cookie_manager = stx.CookieManager(key="auth_mgr_v69")
 
 # --- VERİTABANI ---
 def init_db():
@@ -192,8 +192,6 @@ st.markdown("""
         font-size: 1rem;
         margin-top: -5px;
     }
-    
-    /* GİRİŞ KUTUSU STİLİ */
     .streamlit-expanderHeader {
         font-weight: bold;
         color: #0d47a1;
@@ -201,7 +199,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- OTURUM ---
+# --- OTURUM BAŞLANGIÇ ---
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
@@ -228,7 +226,7 @@ client = OpenAI(api_key=api_key)
 # ==========================================
 # ÜST BAR
 # ==========================================
-col_logo, col_auth = st.columns([3, 1])
+col_logo, col_auth = st.columns([5, 2])
 
 with col_logo:
     st.markdown("<div class='brand-title'>📝 ÖdevMatik</div>", unsafe_allow_html=True)
@@ -274,7 +272,6 @@ with col_auth:
                          if kod_gir == st.session_state.verification_code:
                              if add_user(r_email_v, r_pass_v): st.success("Kayıt Başarılı! Giriş yap."); st.session_state.verification_code = None
                              else: st.error("Hata")
-
     else:
         kredi = get_credit(st.session_state.username)
         st.info(f"👤 **{st.session_state.username.split('@')[0]}**")
@@ -325,21 +322,25 @@ with st.sidebar:
         if st.button("Sıfırla"):
             try: cookie_manager.delete("guest_used"); st.rerun()
             except: pass
+        if st.session_state.logged_in:
+            if st.button("💰 Kendine 100 Kredi Yükle"):
+                update_credit(st.session_state.username, 100); st.success("Yüklendi! Yenile."); time.sleep(1); st.rerun()
 
 # ==========================================
-# ANA EKRAN
+# ANA EKRAN AKIŞI
 # ==========================================
 
 guest_locked = False
 if not st.session_state.logged_in:
     try:
         cookies = cookie_manager.get_all()
-        if "guest_used" in cookies: guest_locked = True
+        # Çerez olsa bile SONUÇ VARSA KİLİTLEME (Cevabı göster)
+        if "guest_used" in cookies and not st.session_state.son_cevap:
+            guest_locked = True
     except: pass
 
-# --- SONUÇ ---
+# --- SONUÇ GÖSTERİMİ ---
 if st.session_state.son_cevap:
-    # 💫 1. SÜS: BAŞARI MESAJI VE BALONLAR
     st.success("✅ Çözüm Başarıyla Hazırlandı!")
     st.balloons()
     
@@ -360,10 +361,14 @@ if st.session_state.son_cevap:
     st.divider()
     if st.button("⬅️ Yeni Soru"):
         st.session_state.son_cevap = None
+        # Misafirsen ve cevabı gördüysen, şimdi kilitle
+        if not st.session_state.logged_in:
+             try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
+             except: pass
         st.rerun()
 
 elif guest_locked and not st.session_state.logged_in:
-    st.warning("⚠️ Hakkın bitti! Devam etmek için sağ üstten **Giriş ve Kayıt Ol**.")
+    st.warning("⚠️ Hakkın bitti! Devam etmek için sağ üstten **Kayıt Ol**.")
 
 else:
     col1, col2, col3 = st.columns(3)
@@ -398,9 +403,8 @@ else:
             if st.form_submit_button("Çöz ✍️", type="primary", use_container_width=True): run = True
 
     if run:
-        # GÖRSEL/METİN KONTROLÜ
         if not gorsel_veri and not metin_sorusu:
-            st.warning("Lütfen bir soru girin!")
+            st.warning("Lütfen bir soru gir!")
         else:
             can_proceed = False
             if st.session_state.logged_in:
@@ -408,8 +412,8 @@ else:
                     deduct_credit(st.session_state.username); can_proceed = True
                 else: st.error("Kredin Bitti!")
             else:
-                try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1)); can_proceed = True
-                except: can_proceed = True
+                # Misafir için hemen izin ver, çerezi SONRA atacağız
+                can_proceed = True
 
             if can_proceed:
                 with st.spinner("Çözülüyor..."):
@@ -443,7 +447,7 @@ else:
                         st.rerun()
                     except Exception as e: st.error(f"Hata: {e}")
 
-# --- 4. SÜS: YASAL UYARI ---
+# --- YASAL UYARI ---
 st.markdown("""
 <div style='text-align: center; color: grey; font-size: 0.8rem; margin-top: 50px; padding-bottom: 20px;'>
     ⚠️ <b>Yasal Uyarı:</b> Bu uygulama yapay zeka desteklidir. Sonuçlar hatalı olabilir.<br>
