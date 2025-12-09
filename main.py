@@ -13,7 +13,7 @@ import datetime
 from fpdf import FPDF
 import requests
 import os
-import re # Düzenli ifadeler (Temizleyici için)
+import re
 
 # --- AYARLAR ---
 st.set_page_config(
@@ -24,7 +24,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v53")
+cookie_manager = stx.CookieManager(key="auth_mgr_v54")
 
 # --- VERİTABANI ---
 def init_db():
@@ -115,24 +115,19 @@ init_db()
 
 # --- TEMİZLEYİCİ (ANTI-LATEX) ---
 def clean_latex(text):
-    # LaTeX kodlarını okunabilir metne çevir
     text = text.replace(r'\frac', '').replace('{', '').replace('}', '/')
     text = text.replace(r'\sqrt', 'kök').replace(r'\times', 'x').replace(r'\cdot', '.')
     text = text.replace(r'\(', '').replace(r'\)', '').replace(r'\[', '').replace(r'\]', '')
-    # Çift bölü işaretlerini teke düşür (Temizlik yan etkisi)
     text = text.replace('//', '/')
     return text
 
 # --- PDF MOTORU ---
 def clean_text_for_pdf(text):
-    # Önce LaTeX temizle
     text = clean_latex(text)
-    
     replacements = {
         'ğ': 'g', 'Ğ': 'G', 'ş': 's', 'Ş': 'S', 'ı': 'i', 'İ': 'I', 'ç': 'c', 'Ç': 'C', 'ö': 'o', 'Ö': 'O', 'ü': 'u', 'Ü': 'U',
         '√': 'kok', '²': '^2', '³': '^3', 'π': 'pi', '∞': 'sonsuz', 
-        '≠': 'esit degil', '≤': '<=', '≥': '>=', '×': 'x', '·': '*', '÷': '/', 
-        '±': '+/-', '≈': 'yaklasik', '∫': 'integral', '∑': 'toplam', '∆': 'delta'
+        '≠': 'esit degil', '≤': '<=', '≥': '>=', '×': 'x', '·': '.', '÷': '/'
     }
     text = text.replace('**', '').replace('__', '').replace('###', '').replace('##', '').replace('#', '')
     for search, replace in replacements.items():
@@ -213,6 +208,7 @@ if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
+if "ozel_icerik" not in st.session_state: st.session_state.ozel_icerik = None
 
 time.sleep(0.1)
 try:
@@ -265,8 +261,10 @@ with col_auth:
                             st.session_state.verification_code = code
                             st.success("Kod yollandı!")
                         else: st.error("Hata")
+                
+                # HATALI GİRİNTİ DÜZELTİLDİ
                 if st.session_state.verification_code:
-                    kod_gir = st.text_input("Kod:")
+                    kod_gir = st.text_input("Doğrulama Kodu:")
                     if st.button("Onayla"):
                         if kod_gir == st.session_state.verification_code:
                             if add_user(r_email, r_pass):
@@ -284,7 +282,12 @@ st.divider()
 # ==========================================
 with st.sidebar:
     st.title("🗂️ Menü")
-    
+    if st.button("🏠 Ana Ekran", use_container_width=True):
+        st.session_state.ozel_icerik = None
+        st.session_state.son_cevap = None
+        st.rerun()
+    st.divider()
+
     if st.session_state.logged_in:
         total_solved = get_total_solved(st.session_state.username)
         st.write(f"**Çözülen Soru:** {total_solved}")
@@ -309,8 +312,10 @@ with st.sidebar:
                         else:
                             st.caption(f"❓ {soru[:30]}...")
                             
+                        # TEMİZ CEVAP GÖSTER
+                        clean_answer = clean_latex(cevap)
                         with st.popover("Cevabı Gör"):
-                            st.write(cevap)
+                            st.write(clean_answer)
                         st.divider()
                 else: st.caption("Henüz soru çözmedin.")
             except: st.caption("Veri hatası.")
@@ -337,9 +342,16 @@ with st.sidebar:
     
     st.divider()
     if st.checkbox("Admin Modu"):
+        # KEYERROR HATASI DÜZELTİLDİ
         if st.button("Misafir Hakkını Sıfırla"):
-            try: cookie_manager.delete("guest_used"); st.session_state.guest_locked_session = False; st.rerun()
-            except: pass
+            try:
+                cookies = cookie_manager.get_all()
+                if "guest_used" in cookies:
+                    cookie_manager.delete("guest_used")
+                st.session_state.guest_locked_session = False
+                st.rerun()
+            except: 
+                pass
         if st.session_state.logged_in:
             if st.button("💰 Kendine 100 Kredi Yükle"):
                 update_credit(st.session_state.username, 100); st.success("Yüklendi! Yenile."); time.sleep(1); st.rerun()
@@ -357,7 +369,6 @@ if not st.session_state.logged_in:
 
 # --- SONUÇ GÖSTERİMİ ---
 if st.session_state.son_cevap:
-    # TEMİZLENMİŞ CEVAP (LATEX YOK)
     clean_cevap = clean_latex(st.session_state.son_cevap)
     
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;background-image:linear-gradient(#999 1px, transparent 1px);background-size:100% 1.8em;border:1px solid #ccc;border-radius:8px;padding:25px;padding-top:5px;font-family:'Patrick Hand','Comic Sans MS',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{clean_cevap}</div>""", unsafe_allow_html=True)
