@@ -23,7 +23,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v45")
+cookie_manager = stx.CookieManager(key="auth_mgr_v46")
 
 # --- MÜFREDAT VERİTABANI ---
 MUFREDAT = {
@@ -36,20 +36,6 @@ MUFREDAT = {
     "11. Sınıf": {"Matematik": ["Trigonometri", "Analitik"], "Fizik": ["Kuvvet", "Elektrik"]},
     "12. Sınıf": {"Matematik": ["Logaritma", "Türev", "İntegral"], "Fizik": ["Çembersel", "Modern Fizik"]}
 }
-
-# --- SENARYO HAVUZU (TEKRARI ÖNLEMEK İÇİN) ---
-SENARYOLAR = [
-    "Uzay istasyonundaki bir mühendislik problemi",
-    "Bir mimarın bina tasarlarken yaptığı hesaplamalar",
-    "Olimpiyat oyunlarındaki skor analizleri",
-    "Bir laboratuvar deneyindeki karışım oranları",
-    "Tarihi bir hazine haritasının şifreleri",
-    "Bir e-ticaret sitesinin kargo ve maliyet hesapları",
-    "Geri dönüşüm tesisindeki atık yönetimi",
-    "Bir çiftçinin tarla sulama planlaması",
-    "Drone yarışlarındaki mesafe ve hız hesapları",
-    "Mutfakta yapılan karmaşık bir yemek tarifi oranları"
-]
 
 # --- VERİTABANI ---
 def init_db():
@@ -321,8 +307,8 @@ with st.sidebar:
                             not_prompt = f"""SEN BİR DERS KİTABI YAZARISIN. DERS: {not_ders}. SINIF: {not_sinif}. KONU: {not_konu}.
                             GÖREV: Detaylı anlat. 3 ÖRNEK VER."""
                         try:
-                            max_tok = 3000 if not_ders == "Matematik" else 2000
-                            resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": not_prompt}], max_tokens=max_tok)
+                            # NOTLAR İÇİN MINI YETERLİDİR
+                            resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": not_prompt}], max_tokens=2500)
                             st.session_state.ozel_icerik = resp.choices[0].message.content
                             st.session_state.icerik_tipi = "Ders Notu"
                             st.rerun()
@@ -330,7 +316,7 @@ with st.sidebar:
                 else: st.error("Hakkın bitti!")
             else: st.warning("Üye olmalısın.")
 
-    # --- TEST HAZIRLA (YENİ NESİL ZOR SORU) ---
+    # --- TEST HAZIRLA (KALİTE AYARLI) ---
     with st.expander("📝 Test Hazırla"):
         q_sinif = st.selectbox("Sınıf:", list(MUFREDAT.keys()), key="q_sinif")
         q_dersler = list(MUFREDAT[q_sinif].keys()) if q_sinif in MUFREDAT else ["Matematik"]
@@ -351,39 +337,29 @@ with st.sidebar:
                     deduct_credit(st.session_state.username); st.toast("1 Hak kullanıldı", icon="🎫")
                     with st.spinner(f"{q_adet} adet {q_zorluk} soru hazırlanıyor..."):
                         
-                        # --- HİKAYE ODAKLI YENİ NESİL PROMPT ---
-                        senaryo = random.choice(SENARYOLAR) # Rastgele bir senaryo seç
-                        
-                        if q_zorluk == "Zor":
-                            ozel_talimat = f"""
-                            BU BİR YENİ NESİL (LGS/YKS TARZI) SINAVDIR.
-                            SENARYO KULLAN: "{senaryo}" temasını kullanarak soruları kurgula.
-                            KURALLAR:
-                            1. Asla basit işlem sorma (2+2 nedir gibi).
-                            2. Sorular HİKAYELEŞTİRİLMİŞ, MANTIK VE MUHAKEME gerektiren türde olsun.
-                            3. Öğrenci soruyu çözmek için birden fazla adımı düşünmek zorunda kalsın.
-                            4. Soruları 1., 2., 3. diye numaralandır.
-                            5. En alta detaylı çözümleri ekle.
-                            """
+                        # --- MODEL VE PROMPT AYARI (KALİTE İÇİN) ---
+                        # Eğer Zor veya Orta ise GPT-4o kullan (Kalite için)
+                        # Eğer Kolay ise GPT-4o-mini kullan (Tasarruf için)
+                        if q_zorluk in ["Orta", "Zor"]:
+                            test_model = "gpt-4o"
+                            ek_talimat = "Sorular HİKAYELEŞTİRİLMİŞ, YENİ NESİL, MANTIK MUHAKEME gerektiren türde olsun. Asla basit işlem sorma."
                         else:
-                            ozel_talimat = f"Seviye: {q_zorluk}. Sorular kazanım odaklı olsun."
+                            test_model = "gpt-4o-mini"
+                            ek_talimat = "Sorular kazanım odaklı, temel seviyede olsun."
 
                         soru_prompt = f"""
-                        GÖREV: {q_sinif} seviyesi {q_ders} dersi "{q_konu}" konusu.
-                        ADET: {q_adet} tane.
+                        GÖREV: Sen MEB Soru Hazırlama Komisyonu Üyesisin.
+                        SINIF: {q_sinif}. DERS: {q_ders}. KONU: {q_konu}.
+                        ADET: {q_adet} tane. SEVİYE: {q_zorluk}.
                         
-                        {ozel_talimat}
-                        
-                        NOT: Sembolleri (√, ², π) doğrudan kullan. LaTeX KULLANMA.
+                        TALİMATLAR:
+                        1. {ek_talimat}
+                        2. Soruları 1., 2. diye numaralandır.
+                        3. En alta 'CEVAP ANAHTARI VE ÇÖZÜMLER' başlığı açıp detaylı çöz.
+                        4. Sembolleri (√, ², π) doğrudan kullan. LaTeX KULLANMA.
                         """
                         try:
-                            # Isıyı (Temperature) artırdık ki daha yaratıcı olsun
-                            resp = client.chat.completions.create(
-                                model="gpt-4o-mini", 
-                                messages=[{"role": "user", "content": soru_prompt}], 
-                                max_tokens=2500,
-                                temperature=0.8 
-                            )
+                            resp = client.chat.completions.create(model=test_model, messages=[{"role": "user", "content": soru_prompt}], max_tokens=2500)
                             st.session_state.ozel_icerik = resp.choices[0].message.content
                             st.session_state.icerik_tipi = f"{q_zorluk} Seviye Test"
                             st.rerun()
@@ -447,8 +423,7 @@ else:
                 data=pdf_bytes,
                 file_name="odevmatik_cozum.pdf",
                 mime="application/pdf",
-                use_container_width=True,
-                type="primary"
+                use_container_width=True
             )
         except: pass
 
