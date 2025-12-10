@@ -2,8 +2,6 @@ import streamlit as st
 from openai import OpenAI
 import base64
 import random
-import urllib.parse
-import sqlite3
 import time
 import extra_streamlit_components as stx
 import datetime
@@ -14,6 +12,9 @@ import re
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import pandas as pd
 
 # --- AYARLAR ---
 st.set_page_config(
@@ -24,7 +25,8 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v77")
+# key değerini değiştirdim ki eski çerezler karışmasın, herkes sıfırdan başlasın
+cookie_manager = stx.CookieManager(key="auth_mgr_v79")
 
 # --- BEKLEME MESAJLARI ---
 LOADING_MESSAGES = [
@@ -38,116 +40,115 @@ LOADING_MESSAGES = [
     "🎲 Zarlar atıldı, çözüm geliyor..."
 ]
 
-# --- VERİTABANI ---
-def init_db():
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute('CREATE TABLE IF NOT EXISTS usersTable (username TEXT PRIMARY KEY, password TEXT, credit INTEGER)')
-    c.execute('''CREATE TABLE IF NOT EXISTS historyTable_v2 
-                 (username TEXT, question TEXT, answer TEXT, image_data TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
-    c.execute('CREATE TABLE IF NOT EXISTS feedbackTable (username TEXT, message TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)')
-    conn.commit()
-    conn.close()
+# --- GOOGLE SHEETS BAĞLANTISI ---
+@st.cache_resource
+def get_google_sheet_client():
+    creds_dict = st.secrets["gcp_service_account"]
+    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    client = gspread.authorize(creds)
+    return client
 
+def get_db():
+    client = get_google_sheet_client()
+    sheet = client.open("OdevMatik_Data")
+    return sheet
+
+# --- VERİTABANI İŞLEMLERİ ---
 def login_user(username, password):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute('SELECT * FROM usersTable WHERE username =? AND password = ?', (username, password))
-    data = c.fetchall()
-    conn.close()
-    return data
+    try:
+        sheet = get_db()
+        users_ws = sheet.worksheet("Users")
+        records = users_ws.get_all_records()
+        for user in records:
+            if str(user['username']) == username and str(user['password']) == password:
+                return True
+        return False
+    except: return False
 
 def add_user(username, password):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
     try:
-        # Yeni üye 5 kredi ile başlar
-        c.execute('INSERT INTO usersTable (username, password, credit) VALUES (?, ?, ?)', (username, password, 5))
-        conn.commit()
-        result = True
-    except: result = False
-    conn.close()
-    return result
+        sheet = get_db()
+        users_ws = sheet.worksheet("Users")
+        cell = users_ws.find(username)
+        if cell: return False 
+        users_ws.append_row([username, password, 5])
+        return True
+    except: return False 
 
 def get_credit(username):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute('SELECT credit FROM usersTable WHERE username =?', (username,))
-    data = c.fetchone()
-    conn.close()
-    return data[0] if data else 0
+    try:
+        sheet = get_db()
+        users_ws = sheet.worksheet("Users")
+        cell = users_ws.find(username)
+        if cell:
+            credit = users_ws.cell(cell.row, 3).value
+            return int(credit)
+        return 0
+    except: return 0
 
 def deduct_credit(username):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute('UPDATE usersTable SET credit = credit - 1 WHERE username =?', (username,))
-    conn.commit()
-    conn.close()
+    try:
+        sheet = get_db()
+        users_ws = sheet.worksheet("Users")
+        cell = users_ws.find(username)
+        if cell:
+            current_credit = int(users_ws.cell(cell.row, 3).value)
+            users_ws.update_cell(cell.row, 3, current_credit - 1)
+    except: pass
 
 def update_credit(username, amount):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    # Kredi EKLEME (Mevcut + Yeni)
-    c.execute('UPDATE usersTable SET credit = credit + ? WHERE username =?', (amount, username))
-    conn.commit()
-    conn.close()
+    try:
+        sheet = get_db()
+        users_ws = sheet.worksheet("Users")
+        cell = users_ws.find(username)
+        if cell:
+            current_credit = int(users_ws.cell(cell.row, 3).value)
+            users_ws.update_cell(cell.row, 3, current_credit + amount)
+    except: pass
 
 def save_history(username, question, answer, image_data=None):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute('INSERT INTO historyTable_v2 (username, question, answer, image_data) VALUES (?, ?, ?, ?)', (username, question, answer, image_data))
-    conn.commit()
-    conn.close()
+    try:
+        sheet = get_db()
+        hist_ws = sheet.worksheet("History")
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        img_note = "Görsel Var" if image_data else "Yok"
+        hist_ws.append_row([username, question[:50], answer[:100], timestamp])
+    except: pass
 
 def get_user_history(username):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute('SELECT question, answer, image_data, timestamp FROM historyTable_v2 WHERE username =? ORDER BY timestamp DESC LIMIT 10', (username,))
-    data = c.fetchall()
-    conn.close()
-    return data
+    try:
+        sheet = get_db()
+        hist_ws = sheet.worksheet("History")
+        all_hist = hist_ws.get_all_records()
+        df = pd.DataFrame(all_hist)
+        user_hist = df[df['username'] == username].tail(5).values.tolist()
+        return user_hist[::-1]
+    except: return []
 
 def get_total_solved(username):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
     try:
-        c.execute('SELECT COUNT(*) FROM historyTable_v2 WHERE username =?', (username,))
-        data = c.fetchone()
-        count = data[0] if data else 0
-    except: count = 0
-    conn.close()
-    return count
+        sheet = get_db()
+        hist_ws = sheet.worksheet("History")
+        all_recs = hist_ws.col_values(1)
+        return all_recs.count(username)
+    except: return 0
 
-def save_feedback(username, message):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute('INSERT INTO feedbackTable (username, message) VALUES (?, ?)', (username, message))
-    conn.commit()
-    conn.close()
-
-# ADMIN
 def get_all_users_raw():
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute("SELECT username, credit FROM usersTable")
-    data = c.fetchall()
-    conn.close()
-    return data
+    try:
+        sheet = get_db()
+        users_ws = sheet.worksheet("Users")
+        return users_ws.get_all_values()[1:]
+    except: return []
 
 def get_total_stats():
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute("SELECT COUNT(*) FROM usersTable")
-    total_users = c.fetchone()[0]
-    c.execute("SELECT COUNT(*) FROM historyTable_v2")
-    total_questions = c.fetchone()[0]
-    conn.close()
-    return total_users, total_questions
+    try:
+        sheet = get_db()
+        users_ws = sheet.worksheet("Users")
+        hist_ws = sheet.worksheet("History")
+        return len(users_ws.col_values(1))-1, len(hist_ws.col_values(1))-1 
+    except: return 0, 0
 
-init_db()
-
-# --- GİZLİ OTOMASYON KAPISI (WEBHOOK İÇİN) ---
-# Sadece URL parametresi ile çalışır, arayüzü bozmaz.
 def check_api_automation():
     try:
         params = st.query_params
@@ -155,7 +156,6 @@ def check_api_automation():
             action = params["api_action"]
             secret = params.get("secret", "")
             real_secret = st.secrets.get("API_SECRET", "123456")
-            
             if secret == real_secret:
                 if action == "add_credit":
                     target_user = params.get("user", "")
@@ -170,7 +170,6 @@ def check_api_automation():
 
 check_api_automation()
 
-# --- TEMİZLEYİCİ ---
 def clean_latex(text):
     text = text.replace(r'\frac', '').replace('{', '').replace('}', '/')
     text = text.replace(r'\sqrt', 'kök').replace(r'\times', 'x').replace(r'\cdot', '.')
@@ -216,7 +215,6 @@ def create_safe_pdf(title, content):
     pdf.multi_cell(0, 7, safe_content)
     return pdf.output(dest='S').encode('latin-1')
 
-# --- E-POSTA ---
 def send_verification_email(to_email, code):
     try:
         sender_email = st.secrets["EMAIL_ADDRESS"]
@@ -239,7 +237,6 @@ def send_verification_email(to_email, code):
         return True
     except: return False
 
-# --- CSS ---
 st.markdown("""
 <style>
     div.stButton > button { width: 100%; border-radius: 12px; height: 55px; font-weight: 800; font-size: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.2s; border: 1px solid #e0e0e0; }
@@ -253,22 +250,25 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- OTURUM & MİSAFİR KİLİDİ ---
+# --- KRİTİK BÖLGE: OTURUM VE MİSAFİR KONTROLÜ ---
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
 if "guest_locked" not in st.session_state: st.session_state.guest_locked = False
 
+# Çerezleri en başta oku ve kontrol et
 time.sleep(0.1)
 try:
     cookies = cookie_manager.get_all()
-    user_token = cookies.get("user_token")
     
-    # Misafir kontrolü: Çerez varsa direkt kilitle
-    if "guest_used" in cookies:
+    # 1. MİSAFİR KİLİT KONTROLÜ (En Başta)
+    # Eğer tarayıcıda bu çerez varsa, bu adam daha önce girmiş demektir.
+    if "guest_used_v2" in cookies: # İsmini değiştirdim ki eskisini unutsun
         st.session_state.guest_locked = True
     
+    # 2. OTURUM KONTROLÜ
+    user_token = cookies.get("user_token")
     if user_token and not st.session_state.logged_in:
         st.session_state.logged_in = True
         st.session_state.username = user_token
@@ -283,9 +283,6 @@ else:
 
 client = OpenAI(api_key=api_key)
 
-# ==========================================
-# ÜST BAR
-# ==========================================
 col_logo, col_auth = st.columns([5, 2])
 
 with col_logo:
@@ -337,9 +334,6 @@ with col_auth:
 
 st.divider()
 
-# ==========================================
-# YAN MENÜ
-# ==========================================
 with st.sidebar:
     st.title("🎓 Öğrenci Paneli")
     if st.button("🏠 Ana Ekran", use_container_width=True):
@@ -381,13 +375,10 @@ with st.sidebar:
             try:
                 hist = get_user_history(st.session_state.username)
                 if hist:
-                    for q, a, img, t in hist:
-                        st.text(t[:16])
-                        if img:
-                            try: st.image(base64.b64decode(img), caption="Soru", use_container_width=True)
-                            except: pass
-                        else: st.caption(q[:30])
-                        with st.popover("Cevabı Gör"): st.write(clean_latex(a))
+                    for row in hist:
+                        st.text(str(row[3])[:16]) 
+                        st.caption(str(row[1])[:30]) 
+                        with st.popover("Cevabı Gör"): st.write(clean_latex(str(row[2])))
                         st.divider()
                 else: st.caption("Yok.")
             except: pass
@@ -400,14 +391,13 @@ with st.sidebar:
     else:
         st.warning("Misafir Modu: 1 Hak")
 
-    # PATRON PANELİ
     admin_mail = st.secrets.get("ADMIN_USER", "admin@admin.com")
     if st.session_state.logged_in and st.session_state.username == admin_mail:
         st.divider()
         st.error("🔒 PATRON PANELİ")
         
         if st.button("Misafir Hakkını Sıfırla"):
-            try: cookie_manager.delete("guest_used"); st.rerun()
+            try: cookie_manager.delete("guest_used_v2"); st.rerun()
             except: pass
             
         st.write("**💰 Kredi Yükle**")
@@ -422,12 +412,10 @@ with st.sidebar:
             st.write(f"Üye Sayısı: {t_user}")
             st.write(f"Çözülen Soru: {t_quest}")
             users_data = get_all_users_raw()
-            for u_mail, u_cred in users_data:
-                st.text(f"{u_mail} - {u_cred}")
-
-# ==========================================
-# ANA EKRAN AKIŞI
-# ==========================================
+            for row in users_data:
+                # row liste olabilir [user, pass, credit]
+                if len(row) >= 3:
+                    st.text(f"{row[0]} - {row[2]}")
 
 guest_blocked = False
 if not st.session_state.logged_in:
@@ -435,12 +423,12 @@ if not st.session_state.logged_in:
         guest_blocked = True
     else:
         try:
-            if "guest_used" in cookie_manager.get_all():
+            # Çerez ismini değiştirdik: guest_used_v2
+            if "guest_used_v2" in cookie_manager.get_all():
                 guest_blocked = True
                 st.session_state.guest_locked = True
         except: pass
 
-# --- SONUÇ ---
 if st.session_state.son_cevap:
     st.success("✅ Çözüm Başarıyla Hazırlandı!")
     st.balloons()
@@ -464,7 +452,7 @@ if st.session_state.son_cevap:
         st.session_state.son_cevap = None
         if not st.session_state.logged_in:
              st.session_state.guest_locked = True
-             try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
+             try: cookie_manager.set("guest_used_v2", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
              except: pass
         st.rerun()
 
@@ -520,7 +508,6 @@ else:
                 msg = random.choice(LOADING_MESSAGES)
                 with st.spinner(msg):
                     try:
-                        # DENGELİ PROMPT (SENİN SEVDİĞİN TARZ)
                         prompt = """
                         GÖREV: Öğrencinin sorduğu soruyu matematik öğretmeni gibi çöz.
                         KURALLAR:
@@ -546,15 +533,15 @@ else:
                             img_save = base64.b64encode(gorsel_veri).decode('utf-8') if gorsel_veri else None
                             save_history(st.session_state.username, "Soru", ans, img_save)
                         else:
+                            # Misafir cevabı görmeden kilitlenir
                             st.session_state.guest_locked = True
-                            try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
+                            try: cookie_manager.set("guest_used_v2", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             except: pass
                         
                         st.session_state.son_cevap = ans
                         st.rerun()
                     except Exception as e: st.error(f"Hata: {e}")
 
-# --- YASAL UYARI ---
 st.markdown("""
 <div style='text-align: center; color: grey; font-size: 0.8rem; margin-top: 50px; padding-bottom: 20px;'>
     ⚠️ <b>Yasal Uyarı:</b> Bu uygulama yapay zeka desteklidir. Sonuçlar hatalı olabilir.<br>
