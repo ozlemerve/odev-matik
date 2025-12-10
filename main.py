@@ -5,16 +5,12 @@ import random
 import urllib.parse
 import sqlite3
 import time
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 import extra_streamlit_components as stx
 import datetime
 from fpdf import FPDF
 import requests
 import os
 import re
-import pandas as pd # Tablo için
 
 # --- AYARLAR ---
 st.set_page_config(
@@ -25,7 +21,19 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v70")
+cookie_manager = stx.CookieManager(key="auth_mgr_v71")
+
+# --- EĞLENCELİ BEKLEME MESAJLARI ---
+LOADING_MESSAGES = [
+    "🧠 Nöronlar ateşleniyor...",
+    "🧐 Matematik profesörüne bağlanılıyor...",
+    "🚀 Işık hızında hesaplanıyor...",
+    "☕ Çayından bir yudum al, hallediyorum...",
+    "📐 Üçgenin iç açıları toplanıyor...",
+    "🔍 Mercek altına alındı...",
+    "🤖 Yapay zeka düşünüyor...",
+    "🎲 Zarlar atıldı, çözüm geliyor..."
+]
 
 # --- VERİTABANI ---
 def init_db():
@@ -112,12 +120,14 @@ def save_feedback(username, message):
     conn.commit()
     conn.close()
 
-# ADMIN: TÜM KULLANICILARI ÇEK
-def get_all_users():
+# ADMIN İÇİN
+def get_all_users_raw():
     conn = sqlite3.connect('users.db')
-    df = pd.read_sql_query("SELECT username, credit FROM usersTable", conn)
+    c = conn.cursor()
+    c.execute("SELECT username, credit FROM usersTable")
+    data = c.fetchall()
     conn.close()
-    return df
+    return data
 
 def get_total_stats():
     conn = sqlite3.connect('users.db')
@@ -200,25 +210,61 @@ def send_verification_email(to_email, code):
         return True
     except: return False
 
-# --- CSS ---
+# --- CSS (PREMIUM GÖRÜNÜM GERİ GELDİ) ---
 st.markdown("""
 <style>
-    div.stButton > button { width: 100%; border-radius: 10px; height: 50px; font-weight: bold; }
-    .stat-box { background-color: #e3f2fd; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 10px; border: 1px solid #90caf9; }
-    .stat-title { font-size: 14px; color: #555; }
-    .stat-value { font-size: 24px; font-weight: bold; color: #1565c0; }
+    /* Havalı Butonlar */
+    div.stButton > button { 
+        width: 100%; 
+        border-radius: 12px; 
+        height: 55px; 
+        font-weight: 800; 
+        font-size: 18px; 
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+        transition: all 0.2s;
+        border: 1px solid #e0e0e0;
+    }
+    div.stButton > button:hover { 
+        transform: scale(1.02); 
+        box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+    }
     
+    /* İstatistik Kutuları */
+    .stat-box { 
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); 
+        padding: 15px; 
+        border-radius: 12px; 
+        text-align: center; 
+        margin-bottom: 10px; 
+        border: 1px solid #90caf9; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .stat-title { font-size: 14px; color: #1565c0; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+    .stat-value { font-size: 28px; font-weight: 900; color: #0d47a1; }
+    
+    /* Logo Başlık Ayarı */
     .brand-title {
-        font-size: 2.2rem;
-        font-weight: 800;
+        font-size: 2.5rem;
+        font-weight: 900;
         color: #0d47a1;
         margin-bottom: 0px;
         margin-top: -20px;
+        text-shadow: 2px 2px 0px #e3f2fd;
+        letter-spacing: -1px;
     }
     .brand-subtitle {
-        color: #666;
-        font-size: 1rem;
+        color: #555;
+        font-size: 1.1rem;
         margin-top: -5px;
+        font-weight: 400;
+    }
+    
+    /* Giriş Kutusu Başlığı */
+    .streamlit-expanderHeader {
+        font-weight: 700 !important;
+        color: #0d47a1 !important;
+        background-color: #f8f9fa !important;
+        border-radius: 8px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -226,6 +272,7 @@ st.markdown("""
 # --- OTURUM ---
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
+if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
 
 time.sleep(0.1)
@@ -295,7 +342,6 @@ with col_auth:
                          if kod_gir == st.session_state.verification_code:
                              if add_user(r_email_v, r_pass_v): st.success("Kayıt Başarılı! Giriş yap."); st.session_state.verification_code = None
                              else: st.error("Hata")
-
     else:
         kredi = get_credit(st.session_state.username)
         st.info(f"👤 **{st.session_state.username.split('@')[0]}**")
@@ -315,9 +361,16 @@ with st.sidebar:
     
     if st.session_state.logged_in:
         total = get_total_solved(st.session_state.username)
+        kredi = get_credit(st.session_state.username)
+        
+        # İLERLEME ÇUBUĞU GERİ GELDİ
+        progress_val = min(1.0, kredi / 100)
+        st.write(f"**Kalan Kredi Durumu:**")
+        st.progress(progress_val)
+        
         c1, c2 = st.columns(2)
         with c1: st.markdown(f"<div class='stat-box'><div class='stat-title'>Çözülen</div><div class='stat-value'>{total}</div></div>", unsafe_allow_html=True)
-        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Kalan</div><div class='stat-value'>{get_credit(st.session_state.username)}</div></div>", unsafe_allow_html=True)
+        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Kalan</div><div class='stat-value'>{kredi}</div></div>", unsafe_allow_html=True)
         
         with st.expander("📜 Geçmiş"):
             try:
@@ -343,9 +396,7 @@ with st.sidebar:
         st.warning("Misafir Modu: 1 Hak")
 
     # --- GİZLİ PATRON PANELİ ---
-    # Sadece senin mailinle giriş yapıldıysa görünür
-    # Secrets'tan admin mailini çekiyoruz
-    admin_mail = st.secrets.get("ADMIN_USER", "admin@admin.com") # Varsayılan güvenlik
+    admin_mail = st.secrets.get("ADMIN_USER", "admin@admin.com")
     
     if st.session_state.logged_in and st.session_state.username == admin_mail:
         st.divider()
@@ -362,10 +413,14 @@ with st.sidebar:
             update_credit(hedef_user, miktar)
             st.success(f"Yüklendi: {hedef_user}")
             
-        with st.expander("Tüm Üyeler"):
-            st.dataframe(get_all_users())
+        with st.expander("İstatistikler"):
             t_user, t_quest = get_total_stats()
-            st.write(f"Üye: {t_user} | Soru: {t_quest}")
+            st.write(f"Üye Sayısı: {t_user}")
+            st.write(f"Çözülen Soru: {t_quest}")
+            # Veri listesi
+            users_data = get_all_users_raw()
+            for u_mail, u_cred in users_data:
+                st.text(f"{u_mail} - {u_cred}")
 
 # ==========================================
 # ANA EKRAN AKIŞI
@@ -381,7 +436,7 @@ if not st.session_state.logged_in:
 # --- SONUÇ ---
 if st.session_state.son_cevap:
     st.success("✅ Çözüm Başarıyla Hazırlandı!")
-    st.balloons()
+    st.balloons() # BALONLAR GELDİ
     
     clean_cevap = clean_latex(st.session_state.son_cevap)
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;padding:25px;font-family:'Patrick Hand',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{clean_cevap}</div>""", unsafe_allow_html=True)
@@ -400,10 +455,14 @@ if st.session_state.son_cevap:
     st.divider()
     if st.button("⬅️ Yeni Soru"):
         st.session_state.son_cevap = None
+        # Misafirsen ve cevabı gördüysen, şimdi kilitle
+        if not st.session_state.logged_in:
+             try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
+             except: pass
         st.rerun()
 
 elif guest_locked and not st.session_state.logged_in:
-    st.warning("⚠️ Hakkın bitti! Devam etmek için sağ üstten **Kayıt Ol**.")
+    st.warning("⚠️ Hakkın bitti! Devam etmek için sağ üstten **Giriş ve Kayıt Ol**.")
 
 else:
     col1, col2, col3 = st.columns(3)
@@ -439,7 +498,7 @@ else:
 
     if run:
         if not gorsel_veri and not metin_sorusu:
-            st.warning("Lütfen bir soru girin!")
+            st.warning("Lütfen bir soru gir!")
         else:
             can_proceed = False
             if st.session_state.logged_in:
@@ -447,25 +506,23 @@ else:
                     deduct_credit(st.session_state.username); can_proceed = True
                 else: st.error("Kredin Bitti!")
             else:
-                if not guest_locked:
-                    try: 
-                        cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
-                        can_proceed = True
-                    except: can_proceed = True
-                else:
-                    st.error("Misafir hakkı doldu!")
+                if not guest_locked: can_proceed = True
+                else: st.error("Misafir hakkı doldu!")
 
             if can_proceed:
-                with st.spinner("Çözülüyor..."):
+                # EĞLENCELİ MESAJ SEÇ (YENİ ÖZELLİK)
+                msg = random.choice(LOADING_MESSAGES)
+                with st.spinner(msg):
                     try:
+                        # PROMPT: KISA, NET, HOCASIZ (v58 Stili)
                         prompt = """
-                        GÖREV: Öğrencinin sorduğu soruyu matematik öğretmeni gibi çöz.
+                        GÖREV: SADECE CEVABI VE KISA İŞLEMİ VER.
                         KURALLAR:
-                        1. Önce işlemi kendi içinde doğrula.
-                        2. Sonra cevabı ve kısa çözüm yolunu yaz.
-                        3. Asla LaTeX kodu kullanma (\\frac, \\sqrt YASAK).
-                        4. Şekil varsa, gördüğün kadarıyla en mantıklı çözümü üret.
-                        5. Net ve kesin konuş.
+                        1. Asla uzun uzun anlatma. "Merhaba", "Şöyle yapalım" deme.
+                        2. En fazla 1-2 satır işlem yap.
+                        3. Sonucu net yaz.
+                        4. Asla LaTeX kodu (\\frac, \\sqrt) kullanma.
+                        5. Şekil varsa: Gördüğün kadarıyla varsayım yapıp direkt sonucu bul.
                         """
                         
                         model = "gpt-4o"
