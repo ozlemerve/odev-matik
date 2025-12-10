@@ -21,9 +21,9 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v72")
+cookie_manager = stx.CookieManager(key="auth_mgr_v73")
 
-# --- EĞLENCELİ BEKLEME MESAJLARI ---
+# --- BEKLEME MESAJLARI ---
 LOADING_MESSAGES = [
     "🧠 Nöronlar ateşleniyor...",
     "🧐 Matematik profesörüne bağlanılıyor...",
@@ -58,7 +58,8 @@ def add_user(username, password):
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
     try:
-        c.execute('INSERT INTO usersTable (username, password, credit) VALUES (?, ?, ?)', (username, password, 100))
+        # DÜZELTME 4: YENİ ÜYE ARTIK 5 KREDİ İLE BAŞLIYOR
+        c.execute('INSERT INTO usersTable (username, password, credit) VALUES (?, ?, ?)', (username, password, 5))
         conn.commit()
         result = True
     except: result = False
@@ -120,7 +121,7 @@ def save_feedback(username, message):
     conn.commit()
     conn.close()
 
-# ADMIN İÇİN
+# ADMIN
 def get_all_users_raw():
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
@@ -210,10 +211,9 @@ def send_verification_email(to_email, code):
         return True
     except: return False
 
-# --- CSS (LIGHT MODE VARSAYILAN) ---
+# --- CSS (TEMEL TASARIM) ---
 st.markdown("""
 <style>
-    /* Havalı Butonlar */
     div.stButton > button { 
         width: 100%; 
         border-radius: 12px; 
@@ -229,7 +229,6 @@ st.markdown("""
         box-shadow: 0 6px 8px rgba(0,0,0,0.15);
     }
     
-    /* İstatistik Kutuları (Light) */
     .stat-box { 
         background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); 
         padding: 15px; 
@@ -242,7 +241,6 @@ st.markdown("""
     .stat-title { font-size: 14px; color: #1565c0; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
     .stat-value { font-size: 28px; font-weight: 900; color: #0d47a1; }
     
-    /* Logo Başlık Ayarı */
     .brand-title {
         font-size: 2.5rem;
         font-weight: 900;
@@ -291,7 +289,7 @@ else:
 client = OpenAI(api_key=api_key)
 
 # ==========================================
-# YAN MENÜ (GECE MODU & İSTATİSTİK)
+# YAN MENÜ (GECE MODU VE İSTATİSTİK)
 # ==========================================
 with st.sidebar:
     st.title("🎓 Öğrenci Paneli")
@@ -300,22 +298,34 @@ with st.sidebar:
         st.rerun()
     st.divider()
     
-    # 🌑 GECE MODU ANAHTARI
+    # 🌙 DÜZELTİLMİŞ GECE MODU
     dark_mode = st.toggle("🌙 Gece Modu")
     if dark_mode:
         st.markdown("""
         <style>
-            .stApp { background-color: #0e1117; color: #fafafa; }
+            .stApp { background-color: #0e1117; color: #e0e0e0; }
             [data-testid="stSidebar"] { background-color: #262730; }
             [data-testid="stHeader"] { background-color: #0e1117; }
-            .brand-title { color: #90caf9 !important; text-shadow: none !important; }
+            
+            /* Logo ve Başlıklar Parlak Olmalı */
+            .brand-title { color: #64b5f6 !important; text-shadow: none !important; }
             .brand-subtitle { color: #b0bec5 !important; }
-            .stat-box { background: linear-gradient(135deg, #1a237e 0%, #283593 100%) !important; border: 1px solid #5c6bc0 !important; }
-            .stat-title { color: #e8eaf6 !important; }
-            .stat-value { color: #ffffff !important; }
-            div.stButton > button { background-color: #1f2937; color: white; border: 1px solid #374151; }
-            div.stButton > button:hover { background-color: #374151; }
             .streamlit-expanderHeader { color: #90caf9 !important; background-color: #1f2937 !important; }
+            
+            /* İstatistik Kutuları Koyu */
+            .stat-box { 
+                background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%) !important; 
+                border: 1px solid #5c6bc0 !important; 
+            }
+            .stat-title { color: #e3f2fd !important; }
+            .stat-value { color: #ffffff !important; }
+            
+            /* Butonlar Koyu */
+            div.stButton > button { background-color: #1f2937; color: #ffffff; border: 1px solid #4b5563; }
+            div.stButton > button:hover { background-color: #374151; border-color: #60a5fa; }
+            
+            /* Metinler */
+            p, h1, h2, h3 { color: #e0e0e0; }
         </style>
         """, unsafe_allow_html=True)
 
@@ -354,9 +364,8 @@ with st.sidebar:
     else:
         st.warning("Misafir Modu: 1 Hak")
 
-    # --- GİZLİ PATRON PANELİ ---
+    # PATRON PANELİ
     admin_mail = st.secrets.get("ADMIN_USER", "admin@admin.com")
-    
     if st.session_state.logged_in and st.session_state.username == admin_mail:
         st.divider()
         st.error("🔒 PATRON PANELİ")
@@ -374,8 +383,7 @@ with st.sidebar:
             
         with st.expander("İstatistikler"):
             t_user, t_quest = get_total_stats()
-            st.write(f"Üye Sayısı: {t_user}")
-            st.write(f"Çözülen Soru: {t_quest}")
+            st.write(f"Üye: {t_user} | Soru: {t_quest}")
             users_data = get_all_users_raw()
             for u_mail, u_cred in users_data:
                 st.text(f"{u_mail} - {u_cred}")
@@ -444,7 +452,7 @@ guest_locked = False
 if not st.session_state.logged_in:
     try:
         cookies = cookie_manager.get_all()
-        # Misafir hakkını yemiş ama cevap yoksa kilitle
+        # DÜZELTME 1: ÇEREZ VARSA VE CEVAP YOKSA KİLİTLE (1 HAK)
         if "guest_used" in cookies and not st.session_state.son_cevap:
             guest_locked = True
     except: pass
@@ -471,7 +479,7 @@ if st.session_state.son_cevap:
     st.divider()
     if st.button("⬅️ Yeni Soru"):
         st.session_state.son_cevap = None
-        # Misafirsen ve cevabı gördüysen, şimdi kilitle
+        # Misafirsen ve cevabı gördüysen, çıkarken kilitle
         if not st.session_state.logged_in:
              try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
              except: pass
@@ -529,13 +537,14 @@ else:
                 msg = random.choice(LOADING_MESSAGES)
                 with st.spinner(msg):
                     try:
+                        # DÜZELTME 2: CEVAP UZUNLUĞU AYARLANDI
                         prompt = """
-                        GÖREV: SADECE CEVABI VE KISA İŞLEMİ VER.
+                        GÖREV: Öğrencinin sorduğu soruyu matematik öğretmeni gibi çöz.
                         KURALLAR:
-                        1. Asla uzun uzun anlatma. "Merhaba", "Şöyle yapalım" deme.
-                        2. En fazla 1-2 satır işlem yap.
-                        3. Sonucu net yaz.
-                        4. Asla LaTeX kodu (\\frac, \\sqrt) kullanma.
+                        1. İşlem adımlarını anlaşılır bir şekilde göster (sadece cevabı verip geçme).
+                        2. Ancak çok uzun, sıkıcı ders anlatımlarına girme.
+                        3. Mantığı kısaca açıkla, işlemi yap, sonucu net belirt.
+                        4. Asla LaTeX kodu kullanma (\\frac, \\sqrt YASAK).
                         5. Şekil varsa: Gördüğün kadarıyla varsayım yapıp direkt sonucu bul.
                         """
                         
