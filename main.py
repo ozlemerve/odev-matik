@@ -24,7 +24,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v76")
+cookie_manager = stx.CookieManager(key="auth_mgr_v77")
 
 # --- BEKLEME MESAJLARI ---
 LOADING_MESSAGES = [
@@ -61,6 +61,7 @@ def add_user(username, password):
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
     try:
+        # Yeni üye 5 kredi ile başlar
         c.execute('INSERT INTO usersTable (username, password, credit) VALUES (?, ?, ?)', (username, password, 5))
         conn.commit()
         result = True
@@ -86,7 +87,8 @@ def deduct_credit(username):
 def update_credit(username, amount):
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
-    c.execute('UPDATE usersTable SET credit = ? WHERE username =?', (amount, username))
+    # Kredi EKLEME (Mevcut + Yeni)
+    c.execute('UPDATE usersTable SET credit = credit + ? WHERE username =?', (amount, username))
     conn.commit()
     conn.close()
 
@@ -143,6 +145,30 @@ def get_total_stats():
     return total_users, total_questions
 
 init_db()
+
+# --- GİZLİ OTOMASYON KAPISI (WEBHOOK İÇİN) ---
+# Sadece URL parametresi ile çalışır, arayüzü bozmaz.
+def check_api_automation():
+    try:
+        params = st.query_params
+        if "api_action" in params:
+            action = params["api_action"]
+            secret = params.get("secret", "")
+            real_secret = st.secrets.get("API_SECRET", "123456")
+            
+            if secret == real_secret:
+                if action == "add_credit":
+                    target_user = params.get("user", "")
+                    amount = int(params.get("amount", 0))
+                    if target_user and amount > 0:
+                        update_credit(target_user, amount)
+                        st.success(f"✅ OTOMASYON: {target_user} hesabına {amount} kredi eklendi!")
+                        time.sleep(2)
+                        st.query_params.clear()
+                        st.rerun()
+    except: pass
+
+check_api_automation()
 
 # --- TEMİZLEYİCİ ---
 def clean_latex(text):
@@ -239,8 +265,7 @@ try:
     cookies = cookie_manager.get_all()
     user_token = cookies.get("user_token")
     
-    # 🛑 MİSAFİR KONTROLÜ (EN BAŞTA)
-    # Eğer çerez varsa DİREKT kilitle. Kaçış yok.
+    # Misafir kontrolü: Çerez varsa direkt kilitle
     if "guest_used" in cookies:
         st.session_state.guest_locked = True
     
@@ -281,9 +306,8 @@ with col_auth:
                             st.session_state.username = u
                             cookie_manager.set("user_token", u, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             st.rerun()
-                        else: st.error("Hata")
+                        else: st.error("Hatalı Giriş!")
             with tab2:
-                # KAYIT İŞLEMİ (KOD ZORUNLU)
                 r_email = st.text_input("Email:", key="r_email_v")
                 r_pass = st.text_input("Şifre:", type="password", key="r_pass_v")
                 
@@ -304,7 +328,7 @@ with col_auth:
                             if add_user(st.session_state.temp_email, st.session_state.temp_pass):
                                 st.success("Kayıt Başarılı! 5 Kredi Yüklendi.")
                                 st.session_state.verification_code = None
-                            else: st.error("Hata")
+                            else: st.error("Hata! Mail kayıtlı olabilir.")
                         else: st.error("Yanlış Kod")
     else:
         kredi = get_credit(st.session_state.username)
@@ -323,14 +347,12 @@ with st.sidebar:
         st.rerun()
     st.divider()
     
-    # GECE MODU
     dark_mode = st.toggle("🌙 Gece Modu")
     if dark_mode:
         st.markdown("""
         <style>
             .stApp { background-color: #0e1117; color: #e0e0e0; }
             [data-testid="stSidebar"] { background-color: #262730; }
-            [data-testid="stHeader"] { background-color: #0e1117; }
             .brand-title { color: #64b5f6 !important; text-shadow: none !important; }
             .brand-subtitle { color: #b0bec5 !important; }
             .streamlit-expanderHeader { color: #90caf9 !important; background-color: #1f2937 !important; }
@@ -385,10 +407,7 @@ with st.sidebar:
         st.error("🔒 PATRON PANELİ")
         
         if st.button("Misafir Hakkını Sıfırla"):
-            try: 
-                cookie_manager.delete("guest_used")
-                st.session_state.guest_locked = False
-                st.rerun()
+            try: cookie_manager.delete("guest_used"); st.rerun()
             except: pass
             
         st.write("**💰 Kredi Yükle**")
@@ -412,7 +431,6 @@ with st.sidebar:
 
 guest_blocked = False
 if not st.session_state.logged_in:
-    # Hem hafızaya hem çereze bak, affetme
     if st.session_state.guest_locked:
         guest_blocked = True
     else:
@@ -445,7 +463,6 @@ if st.session_state.son_cevap:
     if st.button("⬅️ Yeni Soru"):
         st.session_state.son_cevap = None
         if not st.session_state.logged_in:
-             # CEVABI GÖRDÜKTEN SONRA KİLİTLE
              st.session_state.guest_locked = True
              try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
              except: pass
@@ -488,26 +505,22 @@ else:
 
     if run:
         if not gorsel_veri and not metin_sorusu:
-            st.warning("Lütfen bir soru gir!")
+            st.warning("Lütfen bir soru girin!")
         else:
             can_proceed = False
-            # 1. ÜYE
             if st.session_state.logged_in:
                 if get_credit(st.session_state.username) > 0:
                     deduct_credit(st.session_state.username); can_proceed = True
                 else: st.error("Kredin Bitti!")
-            # 2. MİSAFİR (KİLİT KONTROL)
             else:
-                if not guest_blocked:
-                    can_proceed = True
-                else:
-                    st.error("Misafir hakkı doldu!")
+                if not guest_blocked: can_proceed = True
+                else: st.error("Misafir hakkı doldu!")
 
             if can_proceed:
                 msg = random.choice(LOADING_MESSAGES)
                 with st.spinner(msg):
                     try:
-                        # GÜNCELLENMİŞ DENGELİ PROMPT
+                        # DENGELİ PROMPT (SENİN SEVDİĞİN TARZ)
                         prompt = """
                         GÖREV: Öğrencinin sorduğu soruyu matematik öğretmeni gibi çöz.
                         KURALLAR:
@@ -533,7 +546,6 @@ else:
                             img_save = base64.b64encode(gorsel_veri).decode('utf-8') if gorsel_veri else None
                             save_history(st.session_state.username, "Soru", ans, img_save)
                         else:
-                            # Misafir anında kilitlenir
                             st.session_state.guest_locked = True
                             try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
                             except: pass
