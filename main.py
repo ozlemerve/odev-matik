@@ -11,6 +11,9 @@ from fpdf import FPDF
 import requests
 import os
 import re
+import smtplib # Mail için gerekli
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # --- AYARLAR ---
 st.set_page_config(
@@ -21,7 +24,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v74")
+cookie_manager = stx.CookieManager(key="auth_mgr_v75")
 
 # --- BEKLEME MESAJLARI ---
 LOADING_MESSAGES = [
@@ -224,21 +227,16 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- OTURUM & GÜVENLİK ---
+# --- OTURUM ---
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
-if "guest_locked" not in st.session_state: st.session_state.guest_locked = False
 
 time.sleep(0.1)
 try:
     cookies = cookie_manager.get_all()
     user_token = cookies.get("user_token")
-    # Misafir kontrolü (Daha scriptin başında yakala)
-    if "guest_used" in cookies:
-        st.session_state.guest_locked = True
-    
     if user_token and not st.session_state.logged_in:
         st.session_state.logged_in = True
         st.session_state.username = user_token
@@ -266,6 +264,8 @@ with col_auth:
     if not st.session_state.logged_in:
         with st.expander("🔐 Giriş ve Kayıt Ol"):
             tab1, tab2 = st.tabs(["Giriş", "Kayıt"])
+            
+            # --- GİRİŞ TAB ---
             with tab1:
                 with st.form("l_form"):
                     u = st.text_input("Email", label_visibility="collapsed", placeholder="Email")
@@ -276,32 +276,42 @@ with col_auth:
                             st.session_state.username = u
                             cookie_manager.set("user_token", u, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             st.rerun()
-                        else: st.error("Hata")
-            with tab2:
-                with st.form("r_form"):
-                    nu = st.text_input("Email", label_visibility="collapsed", placeholder="Email")
-                    np = st.text_input("Şifre", type="password", label_visibility="collapsed", placeholder="Şifre")
-                    if st.form_submit_button("Kayıt Ol"):
-                        if add_user(nu, np): st.success("Oldu! Giriş yap.");
-                        else: st.error("Hata")
+                        else: st.error("Hatalı Giriş!")
             
-            if st.checkbox("Kodla Kayıt"):
-                 r_email_v = st.text_input("Email:", key="v_email")
-                 r_pass_v = st.text_input("Şifre:", type="password", key="v_pass")
-                 if st.button("Kod Gönder"):
-                     if "@" in r_email_v:
-                         code = str(random.randint(1000,9999))
-                         if send_verification_email(r_email_v, code):
-                             st.session_state.verification_code = code
-                             st.success("Kod yollandı!")
-                         else: st.error("Mail Hatası")
-                 
-                 if st.session_state.verification_code:
-                     kod_gir = st.text_input("Kodu Gir:")
-                     if st.button("Onayla"):
-                         if kod_gir == st.session_state.verification_code:
-                             if add_user(r_email_v, r_pass_v): st.success("Kayıt Başarılı! Giriş yap."); st.session_state.verification_code = None
-                             else: st.error("Hata")
+            # --- KAYIT TAB (DOĞRULAMA ZORUNLU) ---
+            with tab2:
+                # Form kullanmıyoruz ki butonlar bağımsız çalışsın
+                r_email = st.text_input("Email:", key="r_email_input")
+                r_pass = st.text_input("Şifre:", type="password", key="r_pass_input")
+                
+                # 1. ADIM: KOD GÖNDER
+                if st.button("Kod Gönder 📧", key="btn_send_code"):
+                    if "@" in r_email and "." in r_email:
+                        code = str(random.randint(1000, 9999))
+                        if send_verification_email(r_email, code):
+                            st.session_state.verification_code = code
+                            st.session_state.temp_email = r_email # Maili hafızaya al
+                            st.session_state.temp_pass = r_pass   # Şifreyi hafızaya al
+                            st.success("Doğrulama kodu mailine gönderildi!")
+                        else:
+                            st.error("Mail gönderilemedi! Mail ayarlarını kontrol et.")
+                    else:
+                        st.warning("Geçerli bir email giriniz!")
+
+                # 2. ADIM: KODU GİR VE KAYIT OL
+                if st.session_state.verification_code:
+                    kod_gir = st.text_input("Gelen Kodu Giriniz:", key="verify_input")
+                    if st.button("Onayla ve Kayıt Ol ✅", key="btn_verify"):
+                        if kod_gir == st.session_state.verification_code:
+                            # Kayıt İşlemi Burada Yapılıyor
+                            if add_user(st.session_state.temp_email, st.session_state.temp_pass):
+                                st.success("Kayıt Başarılı! 5 Kredi Hesabına Yüklendi. Giriş Yapabilirsin.")
+                                st.session_state.verification_code = None # Temizle
+                            else:
+                                st.error("Bu mail adresi zaten kayıtlı!")
+                        else:
+                            st.error("Hatalı Kod!")
+
     else:
         kredi = get_credit(st.session_state.username)
         st.info(f"👤 **{st.session_state.username.split('@')[0]}**")
@@ -319,7 +329,7 @@ with st.sidebar:
         st.rerun()
     st.divider()
     
-    # 🌙 GECE MODU
+    # GECE MODU
     dark_mode = st.toggle("🌙 Gece Modu")
     if dark_mode:
         st.markdown("""
@@ -381,10 +391,7 @@ with st.sidebar:
         st.error("🔒 PATRON PANELİ")
         
         if st.button("Misafir Hakkını Sıfırla"):
-            try: 
-                cookie_manager.delete("guest_used")
-                st.session_state.guest_locked = False
-                st.rerun()
+            try: cookie_manager.delete("guest_used"); st.rerun()
             except: pass
             
         st.write("**💰 Kredi Yükle**")
@@ -406,18 +413,12 @@ with st.sidebar:
 # ANA EKRAN AKIŞI
 # ==========================================
 
-# Misafir Kilidi Kontrolü (Hafıza + Çerez)
-guest_blocked = False
+guest_locked = False
 if not st.session_state.logged_in:
-    if st.session_state.guest_locked:
-        guest_blocked = True
-    else:
-        # Çerezde var mı diye son bir kontrol
-        try:
-            if "guest_used" in cookie_manager.get_all():
-                guest_blocked = True
-                st.session_state.guest_locked = True
-        except: pass
+    try:
+        cookies = cookie_manager.get_all()
+        if "guest_used" in cookies: guest_locked = True
+    except: pass
 
 # --- SONUÇ ---
 if st.session_state.son_cevap:
@@ -441,15 +442,14 @@ if st.session_state.son_cevap:
     st.divider()
     if st.button("⬅️ Yeni Soru"):
         st.session_state.son_cevap = None
-        # Misafirsen ve cevabı gördüysen, çıkarken kilitle
+        # Misafirsen ve cevabı gördüysen, şimdi kilitle
         if not st.session_state.logged_in:
-             st.session_state.guest_locked = True
              try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
              except: pass
         st.rerun()
 
-elif guest_blocked:
-    st.warning("⚠️ Misafir hakkınız doldu! Lütfen devam etmek için **Giriş Yapın** veya **Kayıt Olun**.")
+elif guest_locked and not st.session_state.logged_in:
+    st.warning("⚠️ Hakkın bitti! Devam etmek için sağ üstten **Giriş ve Kayıt Ol**.")
 
 else:
     col1, col2, col3 = st.columns(3)
@@ -485,33 +485,29 @@ else:
 
     if run:
         if not gorsel_veri and not metin_sorusu:
-            st.warning("Lütfen bir soru girin!")
+            st.warning("Lütfen bir soru gir!")
         else:
             can_proceed = False
-            # 1. ÜYE KONTROLÜ
             if st.session_state.logged_in:
                 if get_credit(st.session_state.username) > 0:
                     deduct_credit(st.session_state.username); can_proceed = True
-                else:
-                    st.error("Kredin Bitti!")
-            # 2. MİSAFİR KONTROLÜ (ÇİFTE KİLİT)
+                else: st.error("Kredin Bitti!")
             else:
-                if not guest_blocked:
-                    can_proceed = True
-                else:
-                    st.error("Misafir hakkı doldu!")
+                # Misafir kontrolü: Cookie yoksa devam
+                if not guest_locked: can_proceed = True
+                else: st.error("Misafir hakkı doldu!")
 
             if can_proceed:
                 msg = random.choice(LOADING_MESSAGES)
                 with st.spinner(msg):
                     try:
                         prompt = """
-                        GÖREV: Öğrencinin sorduğu soruyu matematik öğretmeni gibi çöz.
+                        GÖREV: SADECE CEVABI VE KISA İŞLEMİ VER.
                         KURALLAR:
-                        1. İşlem adımlarını anlaşılır bir şekilde göster (sadece cevabı verip geçme).
-                        2. Ancak çok uzun, sıkıcı ders anlatımlarına girme.
-                        3. Mantığı kısaca açıkla, işlemi yap, sonucu net belirt.
-                        4. Asla LaTeX kodu kullanma (\\frac, \\sqrt YASAK).
+                        1. Asla uzun uzun anlatma. "Merhaba", "Şöyle yapalım" deme.
+                        2. En fazla 1-2 satır işlem yap.
+                        3. Sonucu net yaz.
+                        4. Asla LaTeX kodu (\\frac, \\sqrt) kullanma.
                         5. Şekil varsa: Gördüğün kadarıyla varsayım yapıp direkt sonucu bul.
                         """
                         
@@ -529,11 +525,6 @@ else:
                         if st.session_state.logged_in:
                             img_save = base64.b64encode(gorsel_veri).decode('utf-8') if gorsel_veri else None
                             save_history(st.session_state.username, "Soru", ans, img_save)
-                        else:
-                            # Misafir anında kilitlenir
-                            st.session_state.guest_locked = True
-                            try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
-                            except: pass
                         
                         st.session_state.son_cevap = ans
                         st.rerun()
