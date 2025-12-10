@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v73")
+cookie_manager = stx.CookieManager(key="auth_mgr_v74")
 
 # --- BEKLEME MESAJLARI ---
 LOADING_MESSAGES = [
@@ -58,7 +58,6 @@ def add_user(username, password):
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
     try:
-        # DÜZELTME 4: YENİ ÜYE ARTIK 5 KREDİ İLE BAŞLIYOR
         c.execute('INSERT INTO usersTable (username, password, credit) VALUES (?, ?, ?)', (username, password, 5))
         conn.commit()
         result = True
@@ -211,69 +210,35 @@ def send_verification_email(to_email, code):
         return True
     except: return False
 
-# --- CSS (TEMEL TASARIM) ---
+# --- CSS ---
 st.markdown("""
 <style>
-    div.stButton > button { 
-        width: 100%; 
-        border-radius: 12px; 
-        height: 55px; 
-        font-weight: 800; 
-        font-size: 18px; 
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-        transition: all 0.2s;
-        border: 1px solid #e0e0e0;
-    }
-    div.stButton > button:hover { 
-        transform: scale(1.02); 
-        box-shadow: 0 6px 8px rgba(0,0,0,0.15);
-    }
-    
-    .stat-box { 
-        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); 
-        padding: 15px; 
-        border-radius: 12px; 
-        text-align: center; 
-        margin-bottom: 10px; 
-        border: 1px solid #90caf9; 
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
+    div.stButton > button { width: 100%; border-radius: 12px; height: 55px; font-weight: 800; font-size: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.2s; border: 1px solid #e0e0e0; }
+    div.stButton > button:hover { transform: scale(1.02); box-shadow: 0 6px 8px rgba(0,0,0,0.15); }
+    .stat-box { background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; border: 1px solid #90caf9; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     .stat-title { font-size: 14px; color: #1565c0; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
     .stat-value { font-size: 28px; font-weight: 900; color: #0d47a1; }
-    
-    .brand-title {
-        font-size: 2.5rem;
-        font-weight: 900;
-        color: #0d47a1;
-        margin-bottom: 0px;
-        margin-top: -20px;
-        text-shadow: 2px 2px 0px #e3f2fd;
-        letter-spacing: -1px;
-    }
-    .brand-subtitle {
-        color: #555;
-        font-size: 1.1rem;
-        margin-top: -5px;
-        font-weight: 400;
-    }
-    
-    .streamlit-expanderHeader {
-        font-weight: 700 !important;
-        color: #0d47a1 !important;
-    }
+    .brand-title { font-size: 2.5rem; font-weight: 900; color: #0d47a1; margin-bottom: 0px; margin-top: -20px; text-shadow: 2px 2px 0px #e3f2fd; letter-spacing: -1px; }
+    .brand-subtitle { color: #555; font-size: 1.1rem; margin-top: -5px; font-weight: 400; }
+    .streamlit-expanderHeader { font-weight: 700 !important; color: #0d47a1 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- OTURUM ---
+# --- OTURUM & GÜVENLİK ---
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
+if "guest_locked" not in st.session_state: st.session_state.guest_locked = False
 
 time.sleep(0.1)
 try:
     cookies = cookie_manager.get_all()
     user_token = cookies.get("user_token")
+    # Misafir kontrolü (Daha scriptin başında yakala)
+    if "guest_used" in cookies:
+        st.session_state.guest_locked = True
+    
     if user_token and not st.session_state.logged_in:
         st.session_state.logged_in = True
         st.session_state.username = user_token
@@ -287,106 +252,6 @@ else:
     st.stop()
 
 client = OpenAI(api_key=api_key)
-
-# ==========================================
-# YAN MENÜ (GECE MODU VE İSTATİSTİK)
-# ==========================================
-with st.sidebar:
-    st.title("🎓 Öğrenci Paneli")
-    if st.button("🏠 Ana Ekran", use_container_width=True):
-        st.session_state.son_cevap = None
-        st.rerun()
-    st.divider()
-    
-    # 🌙 DÜZELTİLMİŞ GECE MODU
-    dark_mode = st.toggle("🌙 Gece Modu")
-    if dark_mode:
-        st.markdown("""
-        <style>
-            .stApp { background-color: #0e1117; color: #e0e0e0; }
-            [data-testid="stSidebar"] { background-color: #262730; }
-            [data-testid="stHeader"] { background-color: #0e1117; }
-            
-            /* Logo ve Başlıklar Parlak Olmalı */
-            .brand-title { color: #64b5f6 !important; text-shadow: none !important; }
-            .brand-subtitle { color: #b0bec5 !important; }
-            .streamlit-expanderHeader { color: #90caf9 !important; background-color: #1f2937 !important; }
-            
-            /* İstatistik Kutuları Koyu */
-            .stat-box { 
-                background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%) !important; 
-                border: 1px solid #5c6bc0 !important; 
-            }
-            .stat-title { color: #e3f2fd !important; }
-            .stat-value { color: #ffffff !important; }
-            
-            /* Butonlar Koyu */
-            div.stButton > button { background-color: #1f2937; color: #ffffff; border: 1px solid #4b5563; }
-            div.stButton > button:hover { background-color: #374151; border-color: #60a5fa; }
-            
-            /* Metinler */
-            p, h1, h2, h3 { color: #e0e0e0; }
-        </style>
-        """, unsafe_allow_html=True)
-
-    if st.session_state.logged_in:
-        total = get_total_solved(st.session_state.username)
-        kredi = get_credit(st.session_state.username)
-        
-        progress_val = min(1.0, kredi / 100)
-        st.write(f"**Kalan Kredi Durumu:**")
-        st.progress(progress_val)
-        
-        c1, c2 = st.columns(2)
-        with c1: st.markdown(f"<div class='stat-box'><div class='stat-title'>Çözülen</div><div class='stat-value'>{total}</div></div>", unsafe_allow_html=True)
-        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Kalan</div><div class='stat-value'>{kredi}</div></div>", unsafe_allow_html=True)
-        
-        with st.expander("📜 Geçmiş"):
-            try:
-                hist = get_user_history(st.session_state.username)
-                if hist:
-                    for q, a, img, t in hist:
-                        st.text(t[:16])
-                        if img:
-                            try: st.image(base64.b64decode(img), caption="Soru", use_container_width=True)
-                            except: pass
-                        else: st.caption(q[:30])
-                        with st.popover("Cevabı Gör"): st.write(clean_latex(a))
-                        st.divider()
-                else: st.caption("Yok.")
-            except: pass
-        
-        if st.button("🚪 Çıkış"):
-            st.session_state.logged_in = False
-            st.session_state.username = "Misafir"
-            cookie_manager.delete("user_token")
-            st.rerun()
-    else:
-        st.warning("Misafir Modu: 1 Hak")
-
-    # PATRON PANELİ
-    admin_mail = st.secrets.get("ADMIN_USER", "admin@admin.com")
-    if st.session_state.logged_in and st.session_state.username == admin_mail:
-        st.divider()
-        st.error("🔒 PATRON PANELİ")
-        
-        if st.button("Misafir Hakkını Sıfırla"):
-            try: cookie_manager.delete("guest_used"); st.rerun()
-            except: pass
-            
-        st.write("**💰 Kredi Yükle**")
-        hedef_user = st.text_input("Kullanıcı Email:")
-        miktar = st.number_input("Miktar:", value=100)
-        if st.button("Yükle"):
-            update_credit(hedef_user, miktar)
-            st.success(f"Yüklendi: {hedef_user}")
-            
-        with st.expander("İstatistikler"):
-            t_user, t_quest = get_total_stats()
-            st.write(f"Üye: {t_user} | Soru: {t_quest}")
-            users_data = get_all_users_raw()
-            for u_mail, u_cred in users_data:
-                st.text(f"{u_mail} - {u_cred}")
 
 # ==========================================
 # ÜST BAR
@@ -445,17 +310,114 @@ with col_auth:
 st.divider()
 
 # ==========================================
+# YAN MENÜ
+# ==========================================
+with st.sidebar:
+    st.title("🎓 Öğrenci Paneli")
+    if st.button("🏠 Ana Ekran", use_container_width=True):
+        st.session_state.son_cevap = None
+        st.rerun()
+    st.divider()
+    
+    # 🌙 GECE MODU
+    dark_mode = st.toggle("🌙 Gece Modu")
+    if dark_mode:
+        st.markdown("""
+        <style>
+            .stApp { background-color: #0e1117; color: #e0e0e0; }
+            [data-testid="stSidebar"] { background-color: #262730; }
+            [data-testid="stHeader"] { background-color: #0e1117; }
+            .brand-title { color: #64b5f6 !important; text-shadow: none !important; }
+            .brand-subtitle { color: #b0bec5 !important; }
+            .streamlit-expanderHeader { color: #90caf9 !important; background-color: #1f2937 !important; }
+            .stat-box { background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%) !important; border: 1px solid #5c6bc0 !important; }
+            .stat-title { color: #e3f2fd !important; }
+            .stat-value { color: #ffffff !important; }
+            div.stButton > button { background-color: #1f2937; color: #ffffff; border: 1px solid #4b5563; }
+            div.stButton > button:hover { background-color: #374151; border-color: #60a5fa; }
+            p, h1, h2, h3 { color: #e0e0e0; }
+        </style>
+        """, unsafe_allow_html=True)
+
+    if st.session_state.logged_in:
+        total = get_total_solved(st.session_state.username)
+        kredi = get_credit(st.session_state.username)
+        
+        progress_val = min(1.0, kredi / 100)
+        st.write(f"**Kalan Kredi Durumu:**")
+        st.progress(progress_val)
+        
+        c1, c2 = st.columns(2)
+        with c1: st.markdown(f"<div class='stat-box'><div class='stat-title'>Çözülen</div><div class='stat-value'>{total}</div></div>", unsafe_allow_html=True)
+        with c2: st.markdown(f"<div class='stat-box'><div class='stat-title'>Kalan</div><div class='stat-value'>{kredi}</div></div>", unsafe_allow_html=True)
+        
+        with st.expander("📜 Geçmiş"):
+            try:
+                hist = get_user_history(st.session_state.username)
+                if hist:
+                    for q, a, img, t in hist:
+                        st.text(t[:16])
+                        if img:
+                            try: st.image(base64.b64decode(img), caption="Soru", use_container_width=True)
+                            except: pass
+                        else: st.caption(q[:30])
+                        with st.popover("Cevabı Gör"): st.write(clean_latex(a))
+                        st.divider()
+                else: st.caption("Yok.")
+            except: pass
+        
+        if st.button("🚪 Çıkış"):
+            st.session_state.logged_in = False
+            st.session_state.username = "Misafir"
+            cookie_manager.delete("user_token")
+            st.rerun()
+    else:
+        st.warning("Misafir Modu: 1 Hak")
+
+    # PATRON PANELİ
+    admin_mail = st.secrets.get("ADMIN_USER", "admin@admin.com")
+    if st.session_state.logged_in and st.session_state.username == admin_mail:
+        st.divider()
+        st.error("🔒 PATRON PANELİ")
+        
+        if st.button("Misafir Hakkını Sıfırla"):
+            try: 
+                cookie_manager.delete("guest_used")
+                st.session_state.guest_locked = False
+                st.rerun()
+            except: pass
+            
+        st.write("**💰 Kredi Yükle**")
+        hedef_user = st.text_input("Kullanıcı Email:")
+        miktar = st.number_input("Miktar:", value=100)
+        if st.button("Yükle"):
+            update_credit(hedef_user, miktar)
+            st.success(f"Yüklendi: {hedef_user}")
+            
+        with st.expander("İstatistikler"):
+            t_user, t_quest = get_total_stats()
+            st.write(f"Üye Sayısı: {t_user}")
+            st.write(f"Çözülen Soru: {t_quest}")
+            users_data = get_all_users_raw()
+            for u_mail, u_cred in users_data:
+                st.text(f"{u_mail} - {u_cred}")
+
+# ==========================================
 # ANA EKRAN AKIŞI
 # ==========================================
 
-guest_locked = False
+# Misafir Kilidi Kontrolü (Hafıza + Çerez)
+guest_blocked = False
 if not st.session_state.logged_in:
-    try:
-        cookies = cookie_manager.get_all()
-        # DÜZELTME 1: ÇEREZ VARSA VE CEVAP YOKSA KİLİTLE (1 HAK)
-        if "guest_used" in cookies and not st.session_state.son_cevap:
-            guest_locked = True
-    except: pass
+    if st.session_state.guest_locked:
+        guest_blocked = True
+    else:
+        # Çerezde var mı diye son bir kontrol
+        try:
+            if "guest_used" in cookie_manager.get_all():
+                guest_blocked = True
+                st.session_state.guest_locked = True
+        except: pass
 
 # --- SONUÇ ---
 if st.session_state.son_cevap:
@@ -481,12 +443,13 @@ if st.session_state.son_cevap:
         st.session_state.son_cevap = None
         # Misafirsen ve cevabı gördüysen, çıkarken kilitle
         if not st.session_state.logged_in:
+             st.session_state.guest_locked = True
              try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
              except: pass
         st.rerun()
 
-elif guest_locked and not st.session_state.logged_in:
-    st.warning("⚠️ Hakkın bitti! Devam etmek için sağ üstten **Giriş ve Kayıt Ol**.")
+elif guest_blocked:
+    st.warning("⚠️ Misafir hakkınız doldu! Lütfen devam etmek için **Giriş Yapın** veya **Kayıt Olun**.")
 
 else:
     col1, col2, col3 = st.columns(3)
@@ -522,22 +485,26 @@ else:
 
     if run:
         if not gorsel_veri and not metin_sorusu:
-            st.warning("Lütfen bir soru gir!")
+            st.warning("Lütfen bir soru girin!")
         else:
             can_proceed = False
+            # 1. ÜYE KONTROLÜ
             if st.session_state.logged_in:
                 if get_credit(st.session_state.username) > 0:
                     deduct_credit(st.session_state.username); can_proceed = True
-                else: st.error("Kredin Bitti!")
+                else:
+                    st.error("Kredin Bitti!")
+            # 2. MİSAFİR KONTROLÜ (ÇİFTE KİLİT)
             else:
-                if not guest_locked: can_proceed = True
-                else: st.error("Misafir hakkı doldu!")
+                if not guest_blocked:
+                    can_proceed = True
+                else:
+                    st.error("Misafir hakkı doldu!")
 
             if can_proceed:
                 msg = random.choice(LOADING_MESSAGES)
                 with st.spinner(msg):
                     try:
-                        # DÜZELTME 2: CEVAP UZUNLUĞU AYARLANDI
                         prompt = """
                         GÖREV: Öğrencinin sorduğu soruyu matematik öğretmeni gibi çöz.
                         KURALLAR:
@@ -562,6 +529,11 @@ else:
                         if st.session_state.logged_in:
                             img_save = base64.b64encode(gorsel_veri).decode('utf-8') if gorsel_veri else None
                             save_history(st.session_state.username, "Soru", ans, img_save)
+                        else:
+                            # Misafir anında kilitlenir
+                            st.session_state.guest_locked = True
+                            try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
+                            except: pass
                         
                         st.session_state.son_cevap = ans
                         st.rerun()
