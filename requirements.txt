@@ -3,3 +3,5 @@ openai
 extra-streamlit-components
 fpdf
 requests
+gspread
+oauth2client
