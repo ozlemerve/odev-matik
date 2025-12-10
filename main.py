@@ -5,12 +5,16 @@ import random
 import urllib.parse
 import sqlite3
 import time
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import extra_streamlit_components as stx
 import datetime
 from fpdf import FPDF
 import requests
 import os
 import re
+import pandas as pd # Tablo için
 
 # --- AYARLAR ---
 st.set_page_config(
@@ -21,7 +25,7 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v69")
+cookie_manager = stx.CookieManager(key="auth_mgr_v70")
 
 # --- VERİTABANI ---
 def init_db():
@@ -68,6 +72,13 @@ def deduct_credit(username):
     conn.commit()
     conn.close()
 
+def update_credit(username, amount):
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute('UPDATE usersTable SET credit = ? WHERE username =?', (amount, username))
+    conn.commit()
+    conn.close()
+
 def save_history(username, question, answer, image_data=None):
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
@@ -100,6 +111,23 @@ def save_feedback(username, message):
     c.execute('INSERT INTO feedbackTable (username, message) VALUES (?, ?)', (username, message))
     conn.commit()
     conn.close()
+
+# ADMIN: TÜM KULLANICILARI ÇEK
+def get_all_users():
+    conn = sqlite3.connect('users.db')
+    df = pd.read_sql_query("SELECT username, credit FROM usersTable", conn)
+    conn.close()
+    return df
+
+def get_total_stats():
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM usersTable")
+    total_users = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) FROM historyTable_v2")
+    total_questions = c.fetchone()[0]
+    conn.close()
+    return total_users, total_questions
 
 init_db()
 
@@ -192,17 +220,12 @@ st.markdown("""
         font-size: 1rem;
         margin-top: -5px;
     }
-    .streamlit-expanderHeader {
-        font-weight: bold;
-        color: #0d47a1;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- OTURUM BAŞLANGIÇ ---
+# --- OTURUM ---
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
-if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
 
 time.sleep(0.1)
@@ -234,7 +257,7 @@ with col_logo:
 
 with col_auth:
     if not st.session_state.logged_in:
-        with st.expander("🔐 Giriş / Kayıt"):
+        with st.expander("🔐 Giriş ve Kayıt Ol"):
             tab1, tab2 = st.tabs(["Giriş", "Kayıt"])
             with tab1:
                 with st.form("l_form"):
@@ -272,6 +295,7 @@ with col_auth:
                          if kod_gir == st.session_state.verification_code:
                              if add_user(r_email_v, r_pass_v): st.success("Kayıt Başarılı! Giriş yap."); st.session_state.verification_code = None
                              else: st.error("Hata")
+
     else:
         kredi = get_credit(st.session_state.username)
         st.info(f"👤 **{st.session_state.username.split('@')[0]}**")
@@ -318,13 +342,30 @@ with st.sidebar:
     else:
         st.warning("Misafir Modu: 1 Hak")
 
-    if st.checkbox("Admin"):
-        if st.button("Sıfırla"):
+    # --- GİZLİ PATRON PANELİ ---
+    # Sadece senin mailinle giriş yapıldıysa görünür
+    # Secrets'tan admin mailini çekiyoruz
+    admin_mail = st.secrets.get("ADMIN_USER", "admin@admin.com") # Varsayılan güvenlik
+    
+    if st.session_state.logged_in and st.session_state.username == admin_mail:
+        st.divider()
+        st.error("🔒 PATRON PANELİ")
+        
+        if st.button("Misafir Hakkını Sıfırla"):
             try: cookie_manager.delete("guest_used"); st.rerun()
             except: pass
-        if st.session_state.logged_in:
-            if st.button("💰 Kendine 100 Kredi Yükle"):
-                update_credit(st.session_state.username, 100); st.success("Yüklendi! Yenile."); time.sleep(1); st.rerun()
+            
+        st.write("**💰 Kredi Yükle**")
+        hedef_user = st.text_input("Kullanıcı Email:")
+        miktar = st.number_input("Miktar:", value=100)
+        if st.button("Yükle"):
+            update_credit(hedef_user, miktar)
+            st.success(f"Yüklendi: {hedef_user}")
+            
+        with st.expander("Tüm Üyeler"):
+            st.dataframe(get_all_users())
+            t_user, t_quest = get_total_stats()
+            st.write(f"Üye: {t_user} | Soru: {t_quest}")
 
 # ==========================================
 # ANA EKRAN AKIŞI
@@ -334,12 +375,10 @@ guest_locked = False
 if not st.session_state.logged_in:
     try:
         cookies = cookie_manager.get_all()
-        # Çerez olsa bile SONUÇ VARSA KİLİTLEME (Cevabı göster)
-        if "guest_used" in cookies and not st.session_state.son_cevap:
-            guest_locked = True
+        if "guest_used" in cookies: guest_locked = True
     except: pass
 
-# --- SONUÇ GÖSTERİMİ ---
+# --- SONUÇ ---
 if st.session_state.son_cevap:
     st.success("✅ Çözüm Başarıyla Hazırlandı!")
     st.balloons()
@@ -361,10 +400,6 @@ if st.session_state.son_cevap:
     st.divider()
     if st.button("⬅️ Yeni Soru"):
         st.session_state.son_cevap = None
-        # Misafirsen ve cevabı gördüysen, şimdi kilitle
-        if not st.session_state.logged_in:
-             try: cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
-             except: pass
         st.rerun()
 
 elif guest_locked and not st.session_state.logged_in:
@@ -404,7 +439,7 @@ else:
 
     if run:
         if not gorsel_veri and not metin_sorusu:
-            st.warning("Lütfen bir soru gir!")
+            st.warning("Lütfen bir soru girin!")
         else:
             can_proceed = False
             if st.session_state.logged_in:
@@ -412,8 +447,13 @@ else:
                     deduct_credit(st.session_state.username); can_proceed = True
                 else: st.error("Kredin Bitti!")
             else:
-                # Misafir için hemen izin ver, çerezi SONRA atacağız
-                can_proceed = True
+                if not guest_locked:
+                    try: 
+                        cookie_manager.set("guest_used", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
+                        can_proceed = True
+                    except: can_proceed = True
+                else:
+                    st.error("Misafir hakkı doldu!")
 
             if can_proceed:
                 with st.spinner("Çözülüyor..."):
