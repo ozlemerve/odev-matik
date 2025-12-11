@@ -16,7 +16,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 
-# --- 1. AYARLAR VE GLOBAL DEĞİŞKENLER ---
+# --- AYARLAR ---
 st.set_page_config(
     page_title="ÖdevMatik", 
     page_icon="📝",
@@ -24,11 +24,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# HATA ENGELLEYİCİ: Bu değişkeni en başta tanımlıyoruz.
+# --- GLOBAL DEĞİŞKEN (HATA ENGELLEYİCİ - EN BAŞTA) ---
+# Bunu buraya koydum ki kodun aşağısında "bu nedir" diye patlamasın.
 clean_cevap = ""
 
-# --- ÇEREZ YÖNETİCİSİ (v90 - Temiz Başlangıç) ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v90")
+# --- ÇEREZ YÖNETİCİSİ (v88 - Temiz Başlangıç) ---
+cookie_manager = stx.CookieManager(key="auth_mgr_v88")
 
 # --- BEKLEME MESAJLARI ---
 LOADING_MESSAGES = [
@@ -264,16 +265,12 @@ try:
     cookies = cookie_manager.get_all()
     user_token = cookies.get("user_token")
     
-    # --- MİSAFİR MANTIĞI (ÖZET) ---
-    # Eğer "guest_blocked_v90" çerezi varsa, bu adamın hakkı bitmiştir.
-    # ANCAK: Eğer "st.session_state.son_cevap" doluysa, demek ki adam yeni çözdürmüş ve sayfayı yenilemiş.
-    # O zaman kilitleme ki cevabı görsün.
-    # Eğer cevap YOKSA ve çerez VARSA -> KAPILARI KAPAT.
-    
-    is_blocked_cookie = "guest_blocked_v90" in cookies
+    # MİSAFİR KONTROLÜ (v88 - GÜNCELLENDİ)
+    # Eğer kilit varsa VE ekranda aktif cevap yoksa -> ENGELLE
+    has_cookie = "guest_blocked_v88" in cookies
     has_active_answer = st.session_state.son_cevap is not None
     
-    if is_blocked_cookie and not has_active_answer:
+    if has_cookie and not has_active_answer:
         st.session_state.guest_locked = True
     
     if user_token and not st.session_state.logged_in:
@@ -404,7 +401,7 @@ with st.sidebar:
         st.error("🔒 PATRON PANELİ")
         
         if st.button("Misafir Hakkını Sıfırla"):
-            try: cookie_manager.delete("guest_blocked_v90"); st.rerun()
+            try: cookie_manager.delete("guest_blocked_v88"); st.rerun()
             except: pass
             
         st.write("**💰 Kredi Yükle**")
@@ -427,7 +424,7 @@ if st.session_state.son_cevap:
     st.success("✅ Çözüm Başarıyla Hazırlandı!")
     st.balloons()
     
-    # HATA FİX: clean_cevap en başta tanımlandığı için artık hata vermez.
+    # HATA FİX: Değişken en başta tanımlandığı için burası artık güvenli.
     clean_cevap = clean_latex(st.session_state.son_cevap)
     
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;padding:25px;font-family:'Patrick Hand',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{clean_cevap}</div>""", unsafe_allow_html=True)
@@ -446,12 +443,13 @@ if st.session_state.son_cevap:
     st.divider()
     if st.button("⬅️ Yeni Soru"):
         st.session_state.son_cevap = None
-        # Misafir çıkmak isterse, cevabı gördüğü için artık KİLİTLİ kalsın.
+        # Misafirsen çıkarken KİLİTLE (Cookie'yi şimdi atıyoruz)
         if not st.session_state.logged_in:
-             st.session_state.guest_locked = True
+             try: cookie_manager.set("guest_blocked_v88", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+             except: pass
         st.rerun()
 
-elif st.session_state.guest_locked: # Kilitli misafir
+elif st.session_state.guest_locked:
     st.warning("⚠️ Misafir hakkınız doldu! Lütfen devam etmek için **Giriş ve Kayıt Ol** menüsünü kullanın.")
 
 else:
@@ -491,17 +489,13 @@ else:
             st.warning("Lütfen bir soru girin!")
         else:
             can_proceed = False
-            # 1. ÜYE
             if st.session_state.logged_in:
                 if get_credit(st.session_state.username) > 0:
                     deduct_credit(st.session_state.username); can_proceed = True
                 else: st.error("Kredin Bitti!")
-            # 2. MİSAFİR (Kilitli değilse devam)
             else:
-                if not st.session_state.guest_locked:
-                    can_proceed = True
-                else:
-                    st.error("Misafir hakkı doldu!")
+                if not st.session_state.guest_locked: can_proceed = True
+                else: st.error("Misafir hakkı doldu!")
 
             if can_proceed:
                 msg = random.choice(LOADING_MESSAGES)
@@ -531,22 +525,14 @@ else:
                         if st.session_state.logged_in:
                             img_save = base64.b64encode(gorsel_veri).decode('utf-8') if gorsel_veri else None
                             save_history(st.session_state.username, "Soru", ans, img_save)
-                        
-                        # CEVABI KAYDET
-                        st.session_state.son_cevap = ans
-                        
-                        # MİSAFİR KİLİT MEKANİZMASI (BURASI DÜZELDİ)
-                        if not st.session_state.logged_in:
-                            try:
-                                # Çerezi ŞİMDİ atıyoruz.
-                                cookie_manager.set("guest_blocked_v90", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
-                                # Hafızayı da kilitlemiyoruz ki adam cevabı görebilsin.
-                                # Sadece çerez atıldı, sayfa yenilenirse kilit devreye girecek.
+                        else:
+                            # MİSAFİR KİLİDİ (Çerez Atma)
+                            # Çerez burda atılıyor ama cevap görünsün diye kilit hemen aktif olmuyor
+                            try: cookie_manager.set("guest_blocked_v88", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             except: pass
                         
-                        # SAYFAYI YENİLE (Cevap görünsün)
+                        st.session_state.son_cevap = ans
                         st.rerun()
-                        
                     except Exception as e: st.error(f"Hata: {e}")
 
 st.markdown("""
