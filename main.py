@@ -25,8 +25,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- ÇEREZ YÖNETİCİSİ (v97 - Temiz Başlangıç) ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v97")
+# --- ÇEREZ YÖNETİCİSİ (v98 - Temiz Başlangıç) ---
+cookie_manager = stx.CookieManager(key="auth_mgr_v98")
 
 # --- GLOBAL DEĞİŞKENLER ---
 clean_cevap = ""
@@ -269,11 +269,10 @@ try:
     cookies = cookie_manager.get_all()
     user_token = cookies.get("user_token")
     
-    # MİSAFİR KİLİDİ (v97)
-    has_cookie = "guest_blocked_v97" in cookies
+    # MİSAFİR KİLİDİ (v98)
+    has_cookie = "guest_blocked_v98" in cookies
     has_active_answer = st.session_state.son_cevap is not None
     
-    # Sadece çerez varsa ve aktif cevap yoksa kilitle
     if has_cookie and not has_active_answer:
         st.session_state.guest_locked = True
     
@@ -310,9 +309,10 @@ with col_auth:
                         if login_user(u, p):
                             st.session_state.logged_in = True
                             st.session_state.username = u
+                            st.session_state.guest_locked = False
                             cookie_manager.set("user_token", u, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             st.rerun()
-                        else: st.error("Hatalı Giriş!")
+                        else: st.error("Hatalı Giriş veya API Hatası!")
             with tab2:
                 r_email = st.text_input("Email:", key="r_email_v")
                 r_pass = st.text_input("Şifre:", type="password", key="r_pass_v")
@@ -411,7 +411,7 @@ with st.sidebar:
         st.error("🔒 PATRON PANELİ")
         
         if st.button("Misafir Hakkını Sıfırla"):
-            try: cookie_manager.delete("guest_blocked_v97"); st.rerun()
+            try: cookie_manager.delete("guest_blocked_v98"); st.rerun()
             except: pass
             
         st.write("**💰 Kredi Yükle**")
@@ -435,7 +435,7 @@ if not st.session_state.logged_in:
         guest_blocked = True
     else:
         try:
-            if "guest_blocked_v97" in cookie_manager.get_all():
+            if "guest_blocked_v98" in cookie_manager.get_all():
                 if not st.session_state.son_cevap:
                     guest_blocked = True
         except: pass
@@ -465,20 +465,23 @@ elif st.session_state.son_cevap:
     
     st.divider()
     
-    # 🛑 MİSAFİR KİLİDİ BURADA (SADECE CEVAP GÖSTERİLİRKEN) 🛑
-    # Bu kod çalıştığında zaten cevap ekranda olur.
-    # Yani kullanıcı cevabını okur. Sayfayı yenilediği an kilit devreye girer.
+    # 🛑 MİSAFİR KİLİDİ BURADA 🛑
     if not st.session_state.logged_in:
         try: 
-            # Çerez var mı diye kontrol et, yoksa at (Döngüye girmesin)
-            cookies = cookie_manager.get_all()
-            if "guest_blocked_v97" not in cookies:
-                cookie_manager.set("guest_blocked_v97", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+            cookie_manager.set("guest_blocked_v98", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
         except: pass
 
+    # --- YENİ SORU BUTONU (KAÇIŞI ENGELLER) ---
     if st.button("⬅️ Yeni Soru"):
-        st.session_state.son_cevap = None
-        st.rerun()
+        if not st.session_state.logged_in:
+            # MİSAFİR İSE KİLİTLE VE GÖNDER
+            st.session_state.guest_locked = True
+            st.session_state.son_cevap = None
+            st.rerun()
+        else:
+            # ÜYE İSE DEVAM ET
+            st.session_state.son_cevap = None
+            st.rerun()
 
 else:
     col1, col2, col3 = st.columns(3)
@@ -556,6 +559,10 @@ else:
                         if st.session_state.logged_in:
                             img_save = base64.b64encode(gorsel_veri).decode('utf-8') if gorsel_veri else None
                             save_history(st.session_state.username, "Soru", ans, img_save)
+                        else:
+                            # Yedek kilit
+                            try: cookie_manager.set("guest_blocked_v98", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+                            except: pass
                         
                         st.session_state.son_cevap = ans
                         st.rerun()
