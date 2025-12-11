@@ -25,11 +25,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- ÇEREZ YÖNETİCİSİ (v92 - Temiz Başlangıç) ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v92")
+# --- ÇEREZ YÖNETİCİSİ (v93 - Temiz Başlangıç) ---
+cookie_manager = stx.CookieManager(key="auth_mgr_v93")
 
 # --- GLOBAL DEĞİŞKENLER ---
-clean_cevap = "" # Hatayı önlemek için boş tanımlıyoruz
+clean_cevap = ""
 
 # --- BEKLEME MESAJLARI ---
 LOADING_MESSAGES = [
@@ -73,7 +73,6 @@ def add_user(username, password):
     try:
         sheet = get_db()
         users_ws = sheet.worksheet("Users")
-        # Güvenli kontrol
         all_users = users_ws.col_values(1)
         if username in all_users:
             return False 
@@ -81,7 +80,6 @@ def add_user(username, password):
         users_ws.append_row([username, password, 5])
         return True
     except Exception as e:
-        # Hata detayını gizle, kullanıcıya genel hata dön
         print(f"DB Error: {e}") 
         return False 
 
@@ -271,10 +269,10 @@ try:
     cookies = cookie_manager.get_all()
     user_token = cookies.get("user_token")
     
-    # MİSAFİR KONTROLÜ (v92)
-    # Çerez varsa VE cevap yoksa -> ENGELLE
+    # MİSAFİR KONTROLÜ (v93)
+    # Çerez varsa VE ekranda cevap yoksa -> ENGELLE
     # Cevap varsa (yeni çözülmüşse) -> GÖSTER (Sonra kilitlenecek)
-    has_cookie = "guest_blocked_v92" in cookies
+    has_cookie = "guest_blocked_v93" in cookies
     has_active_answer = st.session_state.son_cevap is not None
     
     if has_cookie and not has_active_answer:
@@ -408,7 +406,7 @@ with st.sidebar:
         st.error("🔒 PATRON PANELİ")
         
         if st.button("Misafir Hakkını Sıfırla"):
-            try: cookie_manager.delete("guest_blocked_v92"); st.rerun()
+            try: cookie_manager.delete("guest_blocked_v93"); st.rerun()
             except: pass
             
         st.write("**💰 Kredi Yükle**")
@@ -432,7 +430,7 @@ if not st.session_state.logged_in:
         guest_blocked = True
     else:
         try:
-            if "guest_blocked_v92" in cookie_manager.get_all():
+            if "guest_blocked_v93" in cookie_manager.get_all():
                 if not st.session_state.son_cevap:
                     guest_blocked = True
         except: pass
@@ -454,7 +452,6 @@ elif st.session_state.son_cevap:
         st.download_button("📥 PDF İndir", pdf_bytes, "cozum.pdf", "application/pdf", use_container_width=True, type="primary")
     except: pass
     
-    # PAYLAŞMA BUTONLARI ARTIK BURADA GÜVENLİ
     st.markdown("### 📤 Paylaş")
     url_txt = urllib.parse.quote(f"Çözüm:\n\n{clean_cevap}\n\n--- ÖdevMatik")
     c1, c2 = st.columns(2)
@@ -462,12 +459,17 @@ elif st.session_state.son_cevap:
     with c2: st.link_button("📧 Mail", f"mailto:?body={url_txt}", use_container_width=True)
     
     st.divider()
+    
+    # 🛑 MİSAFİR KİLİDİ BURADA (CEVAP GÖSTERİLİRKEN) 🛑
+    if not st.session_state.logged_in:
+        try: 
+            # Sessizce çerezi basıyoruz. Adam şu an cevabı görüyor.
+            # Sayfayı yenilediği an üstteki kontrol bunu yakalayacak.
+            cookie_manager.set("guest_blocked_v93", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+        except: pass
+
     if st.button("⬅️ Yeni Soru"):
         st.session_state.son_cevap = None
-        # Misafirsen çıkarken KİLİTLE (Cookie'yi şimdi atıyoruz)
-        if not st.session_state.logged_in:
-             try: cookie_manager.set("guest_blocked_v92", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
-             except: pass
         st.rerun()
 
 else:
@@ -513,10 +515,7 @@ else:
                 else: st.error("Kredin Bitti!")
             else:
                 if not guest_blocked: 
-                    # MİSAFİRİ ANINDA KİLİTLE (Cookie V92)
-                    st.session_state.guest_locked = True
-                    try: cookie_manager.set("guest_blocked_v92", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
-                    except: pass
+                    # MİSAFİRİ BURADA KİLİTLEME! CEVABI GÖRSÜN DİYE BEKLE.
                     can_proceed = True
                 else:
                     st.error("Misafir hakkı doldu!")
@@ -549,10 +548,6 @@ else:
                         if st.session_state.logged_in:
                             img_save = base64.b64encode(gorsel_veri).decode('utf-8') if gorsel_veri else None
                             save_history(st.session_state.username, "Soru", ans, img_save)
-                        else:
-                            # Yedek kilit
-                            try: cookie_manager.set("guest_blocked_v92", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
-                            except: pass
                         
                         st.session_state.son_cevap = ans
                         st.rerun()
