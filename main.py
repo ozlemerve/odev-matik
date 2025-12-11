@@ -25,8 +25,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- ÇEREZ YÖNETİCİSİ (v95 - Tamamen Yeni) ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v95")
+# --- ÇEREZ YÖNETİCİSİ (v96 - Temiz Başlangıç) ---
+cookie_manager = stx.CookieManager(key="auth_mgr_v96")
 
 # --- GLOBAL DEĞİŞKENLER ---
 clean_cevap = ""
@@ -76,6 +76,7 @@ def add_user(username, password):
         all_users = users_ws.col_values(1)
         if username in all_users:
             return False 
+        
         users_ws.append_row([username, password, 5])
         return True
     except Exception as e:
@@ -268,10 +269,9 @@ try:
     cookies = cookie_manager.get_all()
     user_token = cookies.get("user_token")
     
-    # MİSAFİR KİLİDİ (v95)
-    # Eğer çerez varsa ve aktif bir cevap yoksa -> Kilitle
-    # Cevap varsa (yeni çözülmüşse) kilitleme ki görsün.
-    has_cookie = "guest_blocked_v95" in cookies
+    # MİSAFİR KONTROLÜ (v96)
+    # Çerez varsa VE aktif cevap yoksa -> ENGELLE
+    has_cookie = "guest_blocked_v96" in cookies
     has_active_answer = st.session_state.son_cevap is not None
     
     if has_cookie and not has_active_answer:
@@ -280,8 +280,7 @@ try:
     if user_token and not st.session_state.logged_in:
         st.session_state.logged_in = True
         st.session_state.username = user_token
-        # Giriş yapıldığı an misafir kilidini kır
-        st.session_state.guest_locked = False 
+        st.session_state.guest_locked = False # Üye girdiği an kilit kalkar
         st.rerun()
 except: pass
 
@@ -311,7 +310,7 @@ with col_auth:
                         if login_user(u, p):
                             st.session_state.logged_in = True
                             st.session_state.username = u
-                            st.session_state.guest_locked = False # Giriş yapınca kilidi aç
+                            st.session_state.guest_locked = False
                             cookie_manager.set("user_token", u, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             st.rerun()
                         else: st.error("Hatalı Giriş veya API Hatası!")
@@ -335,14 +334,14 @@ with col_auth:
                         if kod_gir == st.session_state.verification_code:
                             if add_user(st.session_state.temp_email, st.session_state.temp_pass):
                                 st.success("Kayıt Başarılı! Giriş Yapılıyor...")
-                                # --- OTOMATİK GİRİŞ ---
+                                # Otomatik Giriş
                                 st.session_state.logged_in = True
                                 st.session_state.username = st.session_state.temp_email
-                                st.session_state.guest_locked = False # Kilidi aç
+                                st.session_state.guest_locked = False
                                 cookie_manager.set("user_token", st.session_state.temp_email, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                                 st.session_state.verification_code = None
                                 st.rerun()
-                            else: st.error("Kayıt Başarısız! Mail kayıtlı olabilir veya API izni yok.")
+                            else: st.error("Kayıt Başarısız! Mail kayıtlı olabilir.")
                         else: st.error("Yanlış Kod")
     else:
         kredi = get_credit(st.session_state.username)
@@ -414,7 +413,7 @@ with st.sidebar:
         st.error("🔒 PATRON PANELİ")
         
         if st.button("Misafir Hakkını Sıfırla"):
-            try: cookie_manager.delete("guest_blocked_v95"); st.rerun()
+            try: cookie_manager.delete("guest_blocked_v96"); st.rerun()
             except: pass
             
         st.write("**💰 Kredi Yükle**")
@@ -438,7 +437,7 @@ if not st.session_state.logged_in:
         guest_blocked = True
     else:
         try:
-            if "guest_blocked_v95" in cookie_manager.get_all():
+            if "guest_blocked_v96" in cookie_manager.get_all():
                 if not st.session_state.son_cevap:
                     guest_blocked = True
         except: pass
@@ -469,10 +468,6 @@ elif st.session_state.son_cevap:
     st.divider()
     if st.button("⬅️ Yeni Soru"):
         st.session_state.son_cevap = None
-        # Misafirsen çıkarken KİLİTLE (Cookie'yi şimdi atıyoruz)
-        if not st.session_state.logged_in:
-             try: cookie_manager.set("guest_blocked_v95", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
-             except: pass
         st.rerun()
 
 else:
@@ -518,10 +513,7 @@ else:
                 else: st.error("Kredin Bitti!")
             else:
                 if not guest_blocked: 
-                    # MİSAFİRİ ANINDA KİLİTLE (Cookie V95)
-                    st.session_state.guest_locked = True
-                    try: cookie_manager.set("guest_blocked_v95", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
-                    except: pass
+                    # ZAMANLAMA BURADA DÜZELDİ: ŞİMDİ KİLİTLEME, DEVAM ET.
                     can_proceed = True
                 else:
                     st.error("Misafir hakkı doldu!")
@@ -554,12 +546,16 @@ else:
                         if st.session_state.logged_in:
                             img_save = base64.b64encode(gorsel_veri).decode('utf-8') if gorsel_veri else None
                             save_history(st.session_state.username, "Soru", ans, img_save)
-                        else:
-                            # Yedek kilit
-                            try: cookie_manager.set("guest_blocked_v95", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+                        
+                        # Cevabı hafızaya al
+                        st.session_state.son_cevap = ans
+                        
+                        # Misafir için KİLİDİ ve COOKIE'Yİ şimdi bas (Cevap Geldikten Sonra)
+                        if not st.session_state.logged_in:
+                            st.session_state.guest_locked = True
+                            try: cookie_manager.set("guest_blocked_v96", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             except: pass
                         
-                        st.session_state.son_cevap = ans
                         st.rerun()
                     except Exception as e: st.error(f"Hata: {e}")
 
