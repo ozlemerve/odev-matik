@@ -24,9 +24,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- ÇEREZ YÖNETİCİSİ ---
-# Sürüm 80: Temiz başlangıç için key değiştirdim
-cookie_manager = stx.CookieManager(key="auth_mgr_v80")
+# --- ÇEREZ YÖNETİCİSİ (KEY GÜNCELLENDİ: v81) ---
+cookie_manager = stx.CookieManager(key="auth_mgr_v81")
 
 # --- BEKLEME MESAJLARI ---
 LOADING_MESSAGES = [
@@ -249,7 +248,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- KRİTİK BÖLGE: OTURUM VE MİSAFİR KONTROLÜ ---
+# --- OTURUM & MİSAFİR KİLİDİ ---
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
@@ -261,8 +260,8 @@ try:
     cookies = cookie_manager.get_all()
     user_token = cookies.get("user_token")
     
-    # MİSAFİR KİLİDİ: Çerez adı güncellendi 'guest_blocked_v80'
-    if "guest_blocked_v80" in cookies:
+    # Çerez varsa (misafir hakkı bitmişse) kilidi aç
+    if "guest_blocked_v81" in cookies:
         st.session_state.guest_locked = True
     
     if user_token and not st.session_state.logged_in:
@@ -393,7 +392,7 @@ with st.sidebar:
         st.error("🔒 PATRON PANELİ")
         
         if st.button("Misafir Hakkını Sıfırla"):
-            try: cookie_manager.delete("guest_blocked_v80"); st.rerun()
+            try: cookie_manager.delete("guest_blocked_v81"); st.rerun()
             except: pass
             
         st.write("**💰 Kredi Yükle**")
@@ -417,7 +416,8 @@ if not st.session_state.logged_in:
         guest_blocked = True
     else:
         try:
-            if "guest_blocked_v80" in cookie_manager.get_all():
+            # Çerez adı güncel: v81
+            if "guest_blocked_v81" in cookie_manager.get_all():
                 guest_blocked = True
                 st.session_state.guest_locked = True
         except: pass
@@ -426,7 +426,7 @@ if st.session_state.son_cevap:
     st.success("✅ Çözüm Başarıyla Hazırlandı!")
     st.balloons()
     
-    # HATANIN DÜZELDİĞİ YER: clean_cevap burada tanımlandı
+    # HATA BURADAYDI, ARTIK DÜZELDİ:
     clean_cevap = clean_latex(st.session_state.son_cevap)
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;padding:25px;font-family:'Patrick Hand',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{clean_cevap}</div>""", unsafe_allow_html=True)
     
@@ -435,8 +435,8 @@ if st.session_state.son_cevap:
         st.download_button("📥 PDF İndir", pdf_bytes, "cozum.pdf", "application/pdf", use_container_width=True, type="primary")
     except: pass
     
-    # Paylaşım butonları artık patlamaz
     st.markdown("### 📤 Paylaş")
+    # clean_cevap artık burada tanımlı olduğu için patlamaz
     url_txt = urllib.parse.quote(f"Çözüm:\n\n{clean_cevap}\n\n--- ÖdevMatik")
     c1, c2 = st.columns(2)
     with c1: st.link_button("💬 WhatsApp", f"https://api.whatsapp.com/send?text={url_txt}", use_container_width=True)
@@ -446,9 +446,8 @@ if st.session_state.son_cevap:
     if st.button("⬅️ Yeni Soru"):
         st.session_state.son_cevap = None
         if not st.session_state.logged_in:
-             # Misafiri burada kalıcı olarak kilitle
              st.session_state.guest_locked = True
-             try: cookie_manager.set("guest_blocked_v80", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+             try: cookie_manager.set("guest_blocked_v81", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
              except: pass
         st.rerun()
 
@@ -529,9 +528,8 @@ else:
                             img_save = base64.b64encode(gorsel_veri).decode('utf-8') if gorsel_veri else None
                             save_history(st.session_state.username, "Soru", ans, img_save)
                         else:
-                            # Misafiri anında kilitle
                             st.session_state.guest_locked = True
-                            try: cookie_manager.set("guest_blocked_v80", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+                            try: cookie_manager.set("guest_blocked_v81", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             except: pass
                         
                         st.session_state.son_cevap = ans
