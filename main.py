@@ -24,8 +24,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- ÇEREZ YÖNETİCİSİ (V83 - TEMİZ BAŞLANGIÇ) ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v83")
+# --- ÇEREZ YÖNETİCİSİ (Sürüm v85 - Temiz Başlangıç) ---
+cookie_manager = stx.CookieManager(key="auth_mgr_v85")
 
 # --- BEKLEME MESAJLARI ---
 LOADING_MESSAGES = [
@@ -260,9 +260,8 @@ try:
     cookies = cookie_manager.get_all()
     user_token = cookies.get("user_token")
     
-    # Çerez varsa (misafir hakkı bitmişse) kilidi aç
-    # Çerez ismini değiştirdik (v83) ki test edebilesin
-    if "guest_blocked_v83" in cookies:
+    # MİSAFİR KİLİDİ (v85): Çerez varsa kilitle
+    if "guest_blocked_v85" in cookies:
         st.session_state.guest_locked = True
     
     if user_token and not st.session_state.logged_in:
@@ -393,7 +392,7 @@ with st.sidebar:
         st.error("🔒 PATRON PANELİ")
         
         if st.button("Misafir Hakkını Sıfırla"):
-            try: cookie_manager.delete("guest_blocked_v83"); st.rerun()
+            try: cookie_manager.delete("guest_blocked_v85"); st.rerun()
             except: pass
             
         st.write("**💰 Kredi Yükle**")
@@ -413,22 +412,24 @@ with st.sidebar:
 
 guest_blocked = False
 if not st.session_state.logged_in:
-    if st.session_state.guest_locked:
-        guest_blocked = True
-    else:
-        try:
-            # Çerez adı güncel: v83
-            if "guest_blocked_v83" in cookie_manager.get_all():
-                guest_blocked = True
-                st.session_state.guest_locked = True
-        except: pass
+    # Kilit kontrolü: Çerez var mı?
+    try:
+        cookies = cookie_manager.get_all()
+        # Eğer çerez varsa ama ekranda cevap yoksa -> Kilitle
+        # Cevap varken kilitleme ki adam cevabı görsün.
+        has_cookie = "guest_blocked_v85" in cookies
+        has_answer = st.session_state.son_cevap is not None
+        
+        if has_cookie and not has_answer:
+            guest_blocked = True
+            st.session_state.guest_locked = True
+    except: pass
 
-# --- SONUÇ GÖSTERİMİ ---
 if st.session_state.son_cevap:
     st.success("✅ Çözüm Başarıyla Hazırlandı!")
     st.balloons()
     
-    # HATA BURADAYDI, ARTIK DÜZELDİ: clean_cevap burada tanımlanıyor
+    # HATAYI BURASI DÜZELTTİ: Değişkeni burada tanımlıyoruz
     clean_cevap = clean_latex(st.session_state.son_cevap)
     
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;padding:25px;font-family:'Patrick Hand',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{clean_cevap}</div>""", unsafe_allow_html=True)
@@ -447,10 +448,9 @@ if st.session_state.son_cevap:
     st.divider()
     if st.button("⬅️ Yeni Soru"):
         st.session_state.son_cevap = None
+        # Misafirsen ve cevabı gördüysen, çıkarken kilitle
         if not st.session_state.logged_in:
-             # CEVABI GÖRDÜKTEN SONRA KİLİT
-             st.session_state.guest_locked = True
-             try: cookie_manager.set("guest_blocked_v83", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+             try: cookie_manager.set("guest_blocked_v85", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
              except: pass
         st.rerun()
 
@@ -509,11 +509,11 @@ else:
                         prompt = """
                         GÖREV: Öğrencinin sorduğu soruyu matematik öğretmeni gibi çöz.
                         KURALLAR:
-                        1. İşlem adımlarını anlaşılır bir şekilde göster.
-                        2. Mantığı 1-2 cümleyle açıkla, sonra işlemi yap.
-                        3. Sonucu net bir şekilde belirt.
+                        1. İşlem adımlarını anlaşılır bir şekilde göster (sadece cevabı verip geçme).
+                        2. Ancak çok uzun, sıkıcı ders anlatımlarına girme.
+                        3. Mantığı kısaca açıkla, işlemi yap, sonucu net belirt.
                         4. Asla LaTeX kodu kullanma (\\frac, \\sqrt YASAK).
-                        5. Şekil varsa: Gördüğün kadarıyla varsayım yapıp çöz.
+                        5. Şekil varsa: Gördüğün kadarıyla varsayım yapıp direkt sonucu bul.
                         """
                         
                         model = "gpt-4o"
@@ -531,9 +531,9 @@ else:
                             img_save = base64.b64encode(gorsel_veri).decode('utf-8') if gorsel_veri else None
                             save_history(st.session_state.username, "Soru", ans, img_save)
                         else:
-                            # MİSAFİR KİLİDİ: Cevap gelince hemen kilitle
-                            st.session_state.guest_locked = True
-                            try: cookie_manager.set("guest_blocked_v83", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+                            # MİSAFİRİ CEVAP GELDİKTEN SONRA KİLİTLE
+                            # Ama burada çerezi hemen atıyoruz ki sayfayı yenilerse kilitli kalsın
+                            try: cookie_manager.set("guest_blocked_v85", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             except: pass
                         
                         st.session_state.son_cevap = ans
