@@ -24,8 +24,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- ÇEREZ YÖNETİCİSİ (Sürüm v85 - Temiz Başlangıç) ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v85")
+# --- ÇEREZ YÖNETİCİSİ (Sürüm v86 - Temiz Başlangıç) ---
+cookie_manager = stx.CookieManager(key="auth_mgr_v86")
 
 # --- BEKLEME MESAJLARI ---
 LOADING_MESSAGES = [
@@ -260,8 +260,12 @@ try:
     cookies = cookie_manager.get_all()
     user_token = cookies.get("user_token")
     
-    # MİSAFİR KİLİDİ (v85): Çerez varsa kilitle
-    if "guest_blocked_v85" in cookies:
+    # MİSAFİR KİLİDİ (Çerez V86 - Yeni)
+    # Eğer çerez varsa ama aktif bir cevap yoksa -> Kilitle
+    has_cookie = "guest_blocked_v86" in cookies
+    has_active_answer = st.session_state.son_cevap is not None
+    
+    if has_cookie and not has_active_answer:
         st.session_state.guest_locked = True
     
     if user_token and not st.session_state.logged_in:
@@ -392,7 +396,7 @@ with st.sidebar:
         st.error("🔒 PATRON PANELİ")
         
         if st.button("Misafir Hakkını Sıfırla"):
-            try: cookie_manager.delete("guest_blocked_v85"); st.rerun()
+            try: cookie_manager.delete("guest_blocked_v86"); st.rerun()
             except: pass
             
         st.write("**💰 Kredi Yükle**")
@@ -412,24 +416,15 @@ with st.sidebar:
 
 guest_blocked = False
 if not st.session_state.logged_in:
-    # Kilit kontrolü: Çerez var mı?
-    try:
-        cookies = cookie_manager.get_all()
-        # Eğer çerez varsa ama ekranda cevap yoksa -> Kilitle
-        # Cevap varken kilitleme ki adam cevabı görsün.
-        has_cookie = "guest_blocked_v85" in cookies
-        has_answer = st.session_state.son_cevap is not None
-        
-        if has_cookie and not has_answer:
-            guest_blocked = True
-            st.session_state.guest_locked = True
-    except: pass
+    if st.session_state.guest_locked:
+        guest_blocked = True
 
+# --- SONUÇ GÖSTERİMİ ---
 if st.session_state.son_cevap:
     st.success("✅ Çözüm Başarıyla Hazırlandı!")
     st.balloons()
     
-    # HATAYI BURASI DÜZELTTİ: Değişkeni burada tanımlıyoruz
+    # 🔴 HATA DÜZELTİLDİ: Değişkeni burada tanımlıyoruz
     clean_cevap = clean_latex(st.session_state.son_cevap)
     
     st.markdown(f"""<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet"><div style="margin-top: 20px; background-color:#fff9c4;padding:25px;font-family:'Patrick Hand',cursive;font-size:22px;color:#000080;line-height:1.8em;box-shadow:5px 5px 15px rgba(0,0,0,0.1);white-space:pre-wrap;">{clean_cevap}</div>""", unsafe_allow_html=True)
@@ -450,7 +445,7 @@ if st.session_state.son_cevap:
         st.session_state.son_cevap = None
         # Misafirsen ve cevabı gördüysen, çıkarken kilitle
         if not st.session_state.logged_in:
-             try: cookie_manager.set("guest_blocked_v85", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+             try: cookie_manager.set("guest_blocked_v86", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
              except: pass
         st.rerun()
 
@@ -494,13 +489,17 @@ else:
             st.warning("Lütfen bir soru girin!")
         else:
             can_proceed = False
+            # 1. ÜYE
             if st.session_state.logged_in:
                 if get_credit(st.session_state.username) > 0:
                     deduct_credit(st.session_state.username); can_proceed = True
                 else: st.error("Kredin Bitti!")
+            # 2. MİSAFİR (KİLİT KONTROL)
             else:
-                if not guest_blocked: can_proceed = True
-                else: st.error("Misafir hakkı doldu!")
+                if not guest_blocked:
+                    can_proceed = True
+                else:
+                    st.error("Misafir hakkı doldu!")
 
             if can_proceed:
                 msg = random.choice(LOADING_MESSAGES)
@@ -509,11 +508,11 @@ else:
                         prompt = """
                         GÖREV: Öğrencinin sorduğu soruyu matematik öğretmeni gibi çöz.
                         KURALLAR:
-                        1. İşlem adımlarını anlaşılır bir şekilde göster (sadece cevabı verip geçme).
-                        2. Ancak çok uzun, sıkıcı ders anlatımlarına girme.
-                        3. Mantığı kısaca açıkla, işlemi yap, sonucu net belirt.
+                        1. İşlem adımlarını anlaşılır bir şekilde göster.
+                        2. Mantığı 1-2 cümleyle açıkla, sonra işlemi yap.
+                        3. Sonucu net bir şekilde belirt.
                         4. Asla LaTeX kodu kullanma (\\frac, \\sqrt YASAK).
-                        5. Şekil varsa: Gördüğün kadarıyla varsayım yapıp direkt sonucu bul.
+                        5. Şekil varsa: Gördüğün kadarıyla varsayım yapıp çöz.
                         """
                         
                         model = "gpt-4o"
@@ -531,9 +530,9 @@ else:
                             img_save = base64.b64encode(gorsel_veri).decode('utf-8') if gorsel_veri else None
                             save_history(st.session_state.username, "Soru", ans, img_save)
                         else:
-                            # MİSAFİRİ CEVAP GELDİKTEN SONRA KİLİTLE
-                            # Ama burada çerezi hemen atıyoruz ki sayfayı yenilerse kilitli kalsın
-                            try: cookie_manager.set("guest_blocked_v85", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+                            # 🛑 MİSAFİRİ ANINDA KİLİTLE (RERUN'DAN ÖNCE)
+                            st.session_state.guest_locked = True
+                            try: cookie_manager.set("guest_blocked_v86", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             except: pass
                         
                         st.session_state.son_cevap = ans
