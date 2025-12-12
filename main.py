@@ -17,7 +17,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 import urllib.parse
 
-# --- AYARLAR ---
+# --- 1. AYARLAR VE GLOBAL DEĞİŞKENLER ---
 st.set_page_config(
     page_title="ÖdevMatik", 
     page_icon="📝",
@@ -25,11 +25,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- ÇEREZ YÖNETİCİSİ (v100 - Jübile) ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v100")
-
-# --- GLOBAL DEĞİŞKENLER ---
+# HATA ENGELLEYİCİ: Bu değişkeni en başta tanımlıyoruz.
 clean_cevap = ""
+
+# --- ÇEREZ YÖNETİCİSİ (v101) ---
+cookie_manager = stx.CookieManager(key="auth_mgr_v101")
 
 # --- BEKLEME MESAJLARI ---
 LOADING_MESSAGES = [
@@ -78,7 +78,10 @@ def add_user(username, password):
             return False 
         users_ws.append_row([username, password, 5])
         return True
-    except: return False 
+    except Exception as e:
+        # Hata detayını terminale yaz, kullanıcıya gösterme
+        print(f"DB Error: {e}")
+        return False 
 
 def get_credit(username):
     if "user_credit" in st.session_state:
@@ -254,32 +257,26 @@ def send_verification_email(to_email, code):
         return True
     except: return False
 
-# --- CSS DÜZENLEMELERİ (UI DÜZELTME) ---
+# --- CSS DÜZENLEMELERİ (MOBİL & UI) ---
 st.markdown("""
 <style>
     /* Üst menülerin yazının üstüne binmesini engellemek için boşluk (PADDING) */
     .block-container {
-        padding-top: 4rem !important; 
+        padding-top: 3rem !important; 
         padding-bottom: 2rem !important;
     }
-    
-    /* Butonlar */
     div.stButton > button { width: 100%; border-radius: 12px; height: 55px; font-weight: 800; font-size: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.2s; border: 1px solid #e0e0e0; }
     div.stButton > button:hover { transform: scale(1.02); box-shadow: 0 6px 8px rgba(0,0,0,0.15); }
-    
-    /* İstatistik kutuları */
     .stat-box { background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; border: 1px solid #90caf9; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     .stat-title { font-size: 14px; color: #1565c0; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
     .stat-value { font-size: 28px; font-weight: 900; color: #0d47a1; }
-    
-    /* Başlık */
-    .brand-title { font-size: 2.5rem; font-weight: 900; color: #0d47a1; margin-bottom: 0px; text-shadow: 2px 2px 0px #e3f2fd; letter-spacing: -1px; }
+    .brand-title { font-size: 2.5rem; font-weight: 900; color: #0d47a1; margin-bottom: 0px; margin-top: -20px; text-shadow: 2px 2px 0px #e3f2fd; letter-spacing: -1px; }
     .brand-subtitle { color: #555; font-size: 1.1rem; margin-top: -5px; font-weight: 400; }
     .streamlit-expanderHeader { font-weight: 700 !important; color: #0d47a1 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- SESSION BAŞLANGIÇ DEĞERLERİ ---
+# --- SESSION & ÇEREZ KONTROLLERİ ---
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
@@ -287,25 +284,20 @@ if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
 if "guest_locked" not in st.session_state: st.session_state.guest_locked = False
 if "user_credit" not in st.session_state: st.session_state.user_credit = 0
 if "total_solved" not in st.session_state: st.session_state.total_solved = 0
-if "guest_usage_count" not in st.session_state: st.session_state.guest_usage_count = 0 # Yeni Sayaç
 
 time.sleep(0.1)
 try:
     cookies = cookie_manager.get_all()
     user_token = cookies.get("user_token")
     
-    # --- MİSAFİR KONTROLÜ (ÇİFTE KİLİT) ---
-    # 1. Cookie var mı?
-    cookie_blocked = "guest_blocked_v100" in cookies
-    # 2. Oturum sayacı 0'dan büyük mü?
-    session_blocked = st.session_state.guest_usage_count > 0
-    
-    # Aktif cevap yoksa ve herhangi bir kilit varsa -> ENGELLE
+    # --- MİSAFİR KİLİDİ (v101) ---
+    # Çerez varsa VE aktif bir cevap ekranda yoksa -> KİLİTLE
+    has_cookie = "guest_blocked_v101" in cookies
     has_active_answer = st.session_state.son_cevap is not None
-    if (cookie_blocked or session_blocked) and not has_active_answer:
+    
+    if has_cookie and not has_active_answer:
         st.session_state.guest_locked = True
     
-    # Üye girişi kontrolü
     if user_token and not st.session_state.logged_in:
         st.session_state.logged_in = True
         st.session_state.username = user_token
@@ -345,7 +337,7 @@ with col_auth:
                             st.session_state.guest_locked = False
                             cookie_manager.set("user_token", u, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             st.rerun()
-                        else: st.error("Hatalı Giriş!")
+                        else: st.error("Hatalı Giriş veya API Hatası!")
             with tab2:
                 r_email = st.text_input("Email:", key="r_email_v")
                 r_pass = st.text_input("Şifre:", type="password", key="r_pass_v")
@@ -365,7 +357,7 @@ with col_auth:
                     if st.button("Onayla ve Kayıt Ol"):
                         if kod_gir == st.session_state.verification_code:
                             if add_user(st.session_state.temp_email, st.session_state.temp_pass):
-                                st.success("Kayıt Başarılı! Giriş...")
+                                st.success("Kayıt Başarılı! Giriş Yapılıyor...")
                                 st.session_state.logged_in = True
                                 st.session_state.username = st.session_state.temp_email
                                 st.session_state.user_credit = 5
@@ -373,7 +365,7 @@ with col_auth:
                                 cookie_manager.set("user_token", st.session_state.temp_email, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                                 st.session_state.verification_code = None
                                 st.rerun()
-                            else: st.error("Kayıt Başarısız!")
+                            else: st.error("Kayıt Başarısız! Mail kayıtlı olabilir.")
                         else: st.error("Yanlış Kod")
     else:
         kredi = st.session_state.user_credit
@@ -445,7 +437,7 @@ with st.sidebar:
         st.error("🔒 PATRON PANELİ")
         
         if st.button("Misafir Hakkını Sıfırla"):
-            try: cookie_manager.delete("guest_blocked_v100"); st.rerun()
+            try: cookie_manager.delete("guest_blocked_v101"); st.rerun()
             except: pass
             
         st.write("**💰 Kredi Yükle**")
@@ -465,9 +457,14 @@ with st.sidebar:
 
 guest_blocked = False
 if not st.session_state.logged_in:
-    # SON KONTROL (Cookie veya Session > 0 ve cevap yok)
-    if (st.session_state.guest_usage_count > 0 or "guest_blocked_v100" in cookie_manager.get_all()) and not st.session_state.son_cevap:
+    if st.session_state.guest_locked:
         guest_blocked = True
+    else:
+        try:
+            if "guest_blocked_v101" in cookie_manager.get_all():
+                if not st.session_state.son_cevap:
+                    guest_blocked = True
+        except: pass
 
 # --- EKRAN AKIŞI ---
 if guest_blocked:
@@ -494,14 +491,14 @@ elif st.session_state.son_cevap:
     
     st.divider()
     
-    # 🛑 MİSAFİR KİLİDİ (COOKIE AT)
+    # 🛑 MİSAFİR KİLİDİ (CEVAP GÖRÜNDÜĞÜ AN ÇEREZ AT)
     if not st.session_state.logged_in:
-        try: cookie_manager.set("guest_blocked_v100", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+        try: cookie_manager.set("guest_blocked_v101", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
         except: pass
 
     if st.button("⬅️ Yeni Soru"):
         st.session_state.son_cevap = None
-        # Misafirsen ve Yeni Soru dersen KİLİTLENİRSİN
+        # Misafirsen "Yeni Soru" deyince kilitle
         if not st.session_state.logged_in:
              st.session_state.guest_locked = True
         st.rerun()
@@ -559,10 +556,6 @@ else:
                 msg = random.choice(LOADING_MESSAGES)
                 with st.spinner(msg):
                     try:
-                        # MİSAFİR SAYAÇ ARTIRMA (Cookie çalışmazsa bu yakalar)
-                        if not st.session_state.logged_in:
-                            st.session_state.guest_usage_count += 1
-                            
                         prompt = """
                         GÖREV: Öğrencinin sorduğu soruyu matematik öğretmeni gibi çöz.
                         KURALLAR:
