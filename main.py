@@ -25,8 +25,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- ÇEREZ YÖNETİCİSİ (v98 - Temiz Başlangıç) ---
-cookie_manager = stx.CookieManager(key="auth_mgr_v98")
+# --- ÇEREZ YÖNETİCİSİ (v99) ---
+cookie_manager = stx.CookieManager(key="auth_mgr_v99")
 
 # --- GLOBAL DEĞİŞKENLER ---
 clean_cevap = ""
@@ -57,7 +57,7 @@ def get_db():
     sheet = client.open("OdevMatik_Data")
     return sheet
 
-# --- VERİTABANI İŞLEMLERİ ---
+# --- VERİTABANI İŞLEMLERİ (GÜÇLENDİRİLDİ) ---
 def login_user(username, password):
     try:
         sheet = get_db()
@@ -65,9 +65,10 @@ def login_user(username, password):
         records = users_ws.get_all_records()
         for user in records:
             if str(user['username']).strip() == username.strip() and str(user['password']).strip() == password.strip():
-                return True
-        return False
-    except: return False
+                # Giriş başarılıysa krediyi de döndür
+                return True, int(user.get('credit', 0))
+        return False, 0
+    except: return False, 0
 
 def add_user(username, password):
     try:
@@ -76,32 +77,39 @@ def add_user(username, password):
         all_users = users_ws.col_values(1)
         if username in all_users:
             return False 
-        
         users_ws.append_row([username, password, 5])
         return True
-    except Exception as e:
-        print(f"DB Error: {e}") 
-        return False 
+    except: return False 
 
 def get_credit(username):
+    # API yorulmasın diye önce session'a bak
+    if "user_credit" in st.session_state:
+        return st.session_state.user_credit
+        
     try:
         sheet = get_db()
         users_ws = sheet.worksheet("Users")
         cell = users_ws.find(username)
         if cell:
-            credit = users_ws.cell(cell.row, 3).value
-            return int(credit)
+            val = int(users_ws.cell(cell.row, 3).value)
+            st.session_state.user_credit = val # Hafızaya al
+            return val
         return 0
     except: return 0
 
 def deduct_credit(username):
+    # Önce hafızadan düş (Hız için)
+    if "user_credit" in st.session_state:
+        st.session_state.user_credit = max(0, st.session_state.user_credit - 1)
+        
     try:
         sheet = get_db()
         users_ws = sheet.worksheet("Users")
         cell = users_ws.find(username)
         if cell:
-            current_credit = int(users_ws.cell(cell.row, 3).value)
-            users_ws.update_cell(cell.row, 3, current_credit - 1)
+            curr = int(users_ws.cell(cell.row, 3).value)
+            new_val = max(0, curr - 1)
+            users_ws.update_cell(cell.row, 3, new_val)
     except: pass
 
 def update_credit(username, amount):
@@ -110,8 +118,11 @@ def update_credit(username, amount):
         users_ws = sheet.worksheet("Users")
         cell = users_ws.find(username)
         if cell:
-            current_credit = int(users_ws.cell(cell.row, 3).value)
-            users_ws.update_cell(cell.row, 3, current_credit + amount)
+            curr = int(users_ws.cell(cell.row, 3).value)
+            users_ws.update_cell(cell.row, 3, curr + amount)
+            # Eğer o kullanıcı şu an aktifse hafızayı da güncelle
+            if st.session_state.get("username") == username:
+                st.session_state.user_credit = curr + amount
     except: pass
 
 def save_history(username, question, answer, image_data=None):
@@ -119,25 +130,36 @@ def save_history(username, question, answer, image_data=None):
         sheet = get_db()
         hist_ws = sheet.worksheet("History")
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        hist_ws.append_row([username, question[:50], answer[:100], timestamp])
-    except: pass
+        # Soruyu ve cevabı kısaltarak kaydet ki hata vermesin
+        q_short = (question[:200] + '..') if len(question) > 200 else question
+        a_short = (answer[:200] + '..') if len(answer) > 200 else answer
+        hist_ws.append_row([username, q_short, a_short, timestamp])
+    except Exception as e:
+        print(f"History Save Error: {e}")
 
 def get_user_history(username):
     try:
         sheet = get_db()
         hist_ws = sheet.worksheet("History")
-        all_hist = hist_ws.get_all_records()
-        df = pd.DataFrame(all_hist)
-        user_hist = df[df['username'] == username].tail(5).values.tolist()
-        return user_hist[::-1]
+        all_vals = hist_ws.get_all_values() # Hızlı okuma
+        # Başlık hariç, kullanıcıya ait son 5 kayıt
+        user_rows = [row for row in all_vals[1:] if row[0] == username]
+        return user_rows[-5:][::-1]
     except: return []
 
 def get_total_solved(username):
+    # Bu işlem yavaştır, o yüzden session'a kaydedelim
+    if "total_solved" in st.session_state:
+        # Her yeni soruda 1 artırıyoruz zaten
+        return st.session_state.total_solved
+
     try:
         sheet = get_db()
         hist_ws = sheet.worksheet("History")
-        all_recs = hist_ws.col_values(1)
-        return all_recs.count(username)
+        all_users = hist_ws.col_values(1)
+        count = all_users.count(username)
+        st.session_state.total_solved = count
+        return count
     except: return 0
 
 def get_all_users_raw():
@@ -152,6 +174,7 @@ def get_total_stats():
         sheet = get_db()
         users_ws = sheet.worksheet("Users")
         hist_ws = sheet.worksheet("History")
+        # Basitçe satır sayısına bak (daha hızlı)
         return len(users_ws.col_values(1))-1, len(hist_ws.col_values(1))-1 
     except: return 0, 0
 
@@ -244,6 +267,7 @@ def send_verification_email(to_email, code):
         return True
     except: return False
 
+# CSS DÜZENLEMESİ (Mobil Uyum)
 st.markdown("""
 <style>
     div.stButton > button { width: 100%; border-radius: 12px; height: 55px; font-weight: 800; font-size: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.2s; border: 1px solid #e0e0e0; }
@@ -253,7 +277,9 @@ st.markdown("""
     .stat-value { font-size: 28px; font-weight: 900; color: #0d47a1; }
     .brand-title { font-size: 2.5rem; font-weight: 900; color: #0d47a1; margin-bottom: 0px; margin-top: -20px; text-shadow: 2px 2px 0px #e3f2fd; letter-spacing: -1px; }
     .brand-subtitle { color: #555; font-size: 1.1rem; margin-top: -5px; font-weight: 400; }
-    .streamlit-expanderHeader { font-weight: 700 !important; color: #0d47a1 !important; }
+    
+    /* Mobilde üst boşluğu al */
+    .block-container { padding-top: 1rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -263,14 +289,16 @@ if "username" not in st.session_state: st.session_state.username = "Misafir"
 if "verification_code" not in st.session_state: st.session_state.verification_code = None
 if "son_cevap" not in st.session_state: st.session_state.son_cevap = None
 if "guest_locked" not in st.session_state: st.session_state.guest_locked = False
+if "user_credit" not in st.session_state: st.session_state.user_credit = 0
+if "total_solved" not in st.session_state: st.session_state.total_solved = 0
 
 time.sleep(0.1)
 try:
     cookies = cookie_manager.get_all()
     user_token = cookies.get("user_token")
     
-    # MİSAFİR KİLİDİ (v98)
-    has_cookie = "guest_blocked_v98" in cookies
+    # MİSAFİR KONTROLÜ
+    has_cookie = "guest_blocked_v99" in cookies
     has_active_answer = st.session_state.son_cevap is not None
     
     if has_cookie and not has_active_answer:
@@ -279,6 +307,8 @@ try:
     if user_token and not st.session_state.logged_in:
         st.session_state.logged_in = True
         st.session_state.username = user_token
+        # Girişte krediyi çek ve hafızaya al
+        st.session_state.user_credit = get_credit(user_token)
         st.session_state.guest_locked = False
         st.rerun()
 except: pass
@@ -306,13 +336,15 @@ with col_auth:
                     u = st.text_input("Email", label_visibility="collapsed", placeholder="Email")
                     p = st.text_input("Şifre", type="password", label_visibility="collapsed", placeholder="Şifre")
                     if st.form_submit_button("Gir"):
-                        if login_user(u, p):
+                        success, cred = login_user(u, p)
+                        if success:
                             st.session_state.logged_in = True
                             st.session_state.username = u
+                            st.session_state.user_credit = cred # Krediyi yükle
                             st.session_state.guest_locked = False
                             cookie_manager.set("user_token", u, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             st.rerun()
-                        else: st.error("Hatalı Giriş veya API Hatası!")
+                        else: st.error("Hatalı Giriş!")
             with tab2:
                 r_email = st.text_input("Email:", key="r_email_v")
                 r_pass = st.text_input("Şifre:", type="password", key="r_pass_v")
@@ -335,6 +367,7 @@ with col_auth:
                                 st.success("Kayıt Başarılı! Giriş Yapılıyor...")
                                 st.session_state.logged_in = True
                                 st.session_state.username = st.session_state.temp_email
+                                st.session_state.user_credit = 5 # Yeni üye 5 kredi
                                 st.session_state.guest_locked = False
                                 cookie_manager.set("user_token", st.session_state.temp_email, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                                 st.session_state.verification_code = None
@@ -342,7 +375,8 @@ with col_auth:
                             else: st.error("Kayıt Başarısız! Mail kayıtlı olabilir.")
                         else: st.error("Yanlış Kod")
     else:
-        kredi = get_credit(st.session_state.username)
+        # Krediyi hafızadan oku (Hızlı)
+        kredi = st.session_state.user_credit
         st.info(f"👤 **{st.session_state.username.split('@')[0]}**")
         st.caption(f"🎫 Kalan: **{kredi}**")
 
@@ -375,7 +409,7 @@ with st.sidebar:
 
     if st.session_state.logged_in:
         total = get_total_solved(st.session_state.username)
-        kredi = get_credit(st.session_state.username)
+        kredi = st.session_state.user_credit
         
         progress_val = min(1.0, kredi / 100)
         st.write(f"**Kalan Kredi Durumu:**")
@@ -411,7 +445,7 @@ with st.sidebar:
         st.error("🔒 PATRON PANELİ")
         
         if st.button("Misafir Hakkını Sıfırla"):
-            try: cookie_manager.delete("guest_blocked_v98"); st.rerun()
+            try: cookie_manager.delete("guest_blocked_v99"); st.rerun()
             except: pass
             
         st.write("**💰 Kredi Yükle**")
@@ -435,7 +469,7 @@ if not st.session_state.logged_in:
         guest_blocked = True
     else:
         try:
-            if "guest_blocked_v98" in cookie_manager.get_all():
+            if "guest_blocked_v99" in cookie_manager.get_all():
                 if not st.session_state.son_cevap:
                     guest_blocked = True
         except: pass
@@ -464,24 +498,12 @@ elif st.session_state.son_cevap:
     with c2: st.link_button("📧 Mail", f"mailto:?body={url_txt}", use_container_width=True)
     
     st.divider()
-    
-    # 🛑 MİSAFİR KİLİDİ BURADA 🛑
-    if not st.session_state.logged_in:
-        try: 
-            cookie_manager.set("guest_blocked_v98", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
-        except: pass
-
-    # --- YENİ SORU BUTONU (KAÇIŞI ENGELLER) ---
     if st.button("⬅️ Yeni Soru"):
+        st.session_state.son_cevap = None
         if not st.session_state.logged_in:
-            # MİSAFİR İSE KİLİTLE VE GÖNDER
-            st.session_state.guest_locked = True
-            st.session_state.son_cevap = None
-            st.rerun()
-        else:
-            # ÜYE İSE DEVAM ET
-            st.session_state.son_cevap = None
-            st.rerun()
+             try: cookie_manager.set("guest_blocked_v99", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+             except: pass
+        st.rerun()
 
 else:
     col1, col2, col3 = st.columns(3)
@@ -521,15 +543,16 @@ else:
         else:
             can_proceed = False
             if st.session_state.logged_in:
-                if get_credit(st.session_state.username) > 0:
-                    deduct_credit(st.session_state.username); can_proceed = True
+                # Kredi kontrolünü hafızadan yap (Güvenli)
+                if st.session_state.user_credit > 0:
+                    deduct_credit(st.session_state.username)
+                    # Hafızadaki sayacı da azalt
+                    st.session_state.total_solved += 1
+                    can_proceed = True
                 else: st.error("Kredin Bitti!")
             else:
-                if not guest_blocked: 
-                    # MİSAFİRİ BURADA KİLİTLEME! CEVAP GELSİN ÖYLE.
-                    can_proceed = True
-                else:
-                    st.error("Misafir hakkı doldu!")
+                if not guest_blocked: can_proceed = True
+                else: st.error("Misafir hakkı doldu!")
 
             if can_proceed:
                 msg = random.choice(LOADING_MESSAGES)
@@ -561,7 +584,7 @@ else:
                             save_history(st.session_state.username, "Soru", ans, img_save)
                         else:
                             # Yedek kilit
-                            try: cookie_manager.set("guest_blocked_v98", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+                            try: cookie_manager.set("guest_blocked_v99", "true", expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
                             except: pass
                         
                         st.session_state.son_cevap = ans
